@@ -276,9 +276,13 @@ public class RegexToDFAConverter {
                 // Keep . as is for now - it will be handled as a wildcard in postfix conversion
                 result.append(c);
             } else if (c == '{' && !inCharacterClass && !escaped) {
-                // For now, just pass through {n,m} quantifiers as-is
-                // TODO: Implement proper {n,m} quantifier handling
-                result.append(c);
+                // Simple replacement for {2,} -> + for now
+                if (i + 3 < regex.length() && regex.substring(i, i + 4).equals("{2,}")) {
+                    result.append("+");
+                    i += 3; // Skip the remaining characters of {2,}
+                } else {
+                    result.append(c);
+                }
             } else {
                 result.append(c);
             }
@@ -586,24 +590,6 @@ public class RegexToDFAConverter {
                     needConcat = true;
                 } else {
                     needConcat = false;
-                }
-            } else if (c == '{') {
-                // Handle {n,m} quantifiers
-                QuantifierInfo quantifier = parseQuantifier(infix, i);
-                if (quantifier != null) {
-                    // Apply the quantifier to the last operand
-                    if (postfix.length() == 0) {
-                        throw new IllegalArgumentException("Nothing to repeat at position " + i);
-                    }
-                    
-                    // Add the quantifier operators to postfix
-                    postfix.append(quantifier.replacement);
-                    i += quantifier.length - 1; // Skip the processed characters
-                    needConcat = true;
-                } else {
-                    // Not a valid quantifier, treat as literal
-                    postfix.append(c);
-                    needConcat = true;
                 }
             }
         }
