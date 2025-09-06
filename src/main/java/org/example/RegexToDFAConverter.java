@@ -210,8 +210,8 @@ public class RegexToDFAConverter {
                     }
                 }
             } else if (c == '.' && !inCharacterClass) {
-                // Keep . as is - we'll handle it specially in the NFA building
-                result.append(".");
+                // Replace . with character class that includes newlines and common characters
+                result.append("[ -~\\n\\r\\t]");
             } else {
                 result.append(c);
             }
@@ -375,9 +375,6 @@ public class RegexToDFAConverter {
                     char actualChar = getEscapedCharacter(nextChar);
                     nfaStack.push(createCharacterNFA(actualChar));
                     i++; // Skip the next character as it's part of the escape sequence
-                } else if (c == '.') {
-                    // Create NFA for dot (matches any character)
-                    nfaStack.push(createDotNFA());
                 } else {
                     // Create NFA for single character
                     nfaStack.push(createCharacterNFA(c));
@@ -472,25 +469,6 @@ public class RegexToDFAConverter {
             default:
                 return c; // For unrecognized escape sequences, return the character as-is
         }
-    }
-    
-    /**
-     * Creates an NFA for the dot character (matches any character).
-     */
-    private static NFA createDotNFA() {
-        Set<String> acceptingStates = new HashSet<String>();
-        String acceptState = "accept_" + System.nanoTime();
-        acceptingStates.add(acceptState);
-        
-        String startState = "start_" + System.nanoTime();
-        NFA nfa = new NFA(startState, acceptingStates);
-        
-        // Add transitions for all printable ASCII characters and common control characters
-        for (char c = 0; c <= 255; c++) {
-            nfa.addTransition(startState, c, acceptState);
-        }
-        
-        return nfa;
     }
     
     /**
@@ -674,8 +652,7 @@ public class RegexToDFAConverter {
         }
         
         // Check if it's a special character that's not an operator
-        // Note: . is an operand (matches any character), not an operator
-        if ("()[]{}*+?|^$".indexOf(c) != -1) {
+        if ("()[]{}*+?|.^$".indexOf(c) != -1) {
             return false;
         }
         
@@ -690,7 +667,7 @@ public class RegexToDFAConverter {
      * @return true if the character is an operator
      */
     private static boolean isOperator(char c) {
-        return "*+?|".indexOf(c) != -1;
+        return "*+?|.".indexOf(c) != -1;
     }
     
     /**
