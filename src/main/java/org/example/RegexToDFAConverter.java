@@ -63,14 +63,20 @@ public class RegexToDFAConverter {
      */
     private static void validateRegex(String regex) {
         // Check for operators without operands
-        if (regex.startsWith("*") || regex.startsWith("+") || regex.startsWith("?") || regex.startsWith("|")) {
+        if (regex.startsWith("*") || regex.startsWith("+") || regex.startsWith("?")) {
             throw new IllegalArgumentException("Invalid regex: " + regex.charAt(0) + " without operand");
+        }
+        if (regex.startsWith("|")) {
+            throw new IllegalArgumentException("Invalid regex: | requires two operands");
         }
         
         // Check for operators at the end (except for escaped ones)
         char lastChar = regex.charAt(regex.length() - 1);
-        if ((lastChar == '|' || lastChar == '\\') && (regex.length() < 2 || regex.charAt(regex.length() - 2) != '\\')) {
-            throw new IllegalArgumentException("Invalid regex: " + lastChar + " at end of regex");
+        if (lastChar == '|' && (regex.length() < 2 || regex.charAt(regex.length() - 2) != '\\')) {
+            throw new IllegalArgumentException("Invalid regex: | requires two operands");
+        }
+        if (lastChar == '\\' && (regex.length() < 2 || regex.charAt(regex.length() - 2) != '\\')) {
+            throw new IllegalArgumentException("Incomplete escape sequence");
         }
         
         // Check for invalid operator sequences
@@ -83,12 +89,12 @@ public class RegexToDFAConverter {
             // Check for invalid operator sequences like **, ++, ??, etc.
             if ((current == '*' || current == '+' || current == '?') && 
                 (next == '*' || next == '+' || next == '?')) {
-                throw new IllegalArgumentException("Invalid operator sequence: " + current + next);
+                throw new IllegalArgumentException("Invalid regex: " + current + " without operand");
             }
             
             // Check for | at start or end, or consecutive |
             if (current == '|' && (i == 0 || next == '|' || next == ')')) {
-                throw new IllegalArgumentException("Invalid use of | operator");
+                throw new IllegalArgumentException("Invalid regex: | requires two operands");
             }
         }
         
@@ -139,11 +145,11 @@ public class RegexToDFAConverter {
                     case 'x':
                         // Handle hex escape sequences (\xHH)
                         if (i + 2 >= regex.length()) {
-                            throw new IllegalArgumentException("Incomplete hex escape sequence");
+                            throw new IllegalArgumentException("Invalid hex character");
                         }
                         String hexDigits = regex.substring(i + 1, i + 3);
                         if (!hexDigits.matches("[0-9a-fA-F]{2}")) {
-                            throw new IllegalArgumentException("Invalid hex character: " + hexDigits);
+                            throw new IllegalArgumentException("Invalid regex: invalid hex character " + hexDigits);
                         }
                         result.append("\\x").append(hexDigits);
                         i += 2; // Skip the hex digits
@@ -182,7 +188,7 @@ public class RegexToDFAConverter {
                 
                 // Check for empty character class
                 if (i + 1 < regex.length() && regex.charAt(i + 1) == ']') {
-                    throw new IllegalArgumentException("Empty character class");
+                    throw new IllegalArgumentException("Invalid regex: empty character class");
                 }
             } else if (c == ']') {
                 if (!inCharacterClass) {
@@ -218,7 +224,7 @@ public class RegexToDFAConverter {
         }
         
         if (escaped) {
-            throw new IllegalArgumentException("Incomplete escape sequence at end of regex");
+            throw new IllegalArgumentException("Incomplete escape sequence");
         }
         
         if (inCharacterClass) {
@@ -431,7 +437,8 @@ public class RegexToDFAConverter {
         }
         
         if (nfaStack.isEmpty()) {
-            throw new IllegalArgumentException("Invalid regex: empty expression");
+            // For empty postfix, create an empty string NFA
+            return createEmptyStringNFA();
         }
         
         if (nfaStack.size() > 1) {
@@ -540,7 +547,7 @@ public class RegexToDFAConverter {
                         int endValue = Integer.parseInt(endHex, 16);
                         
                         if (startValue > endValue) {
-                            throw new IllegalArgumentException("Invalid hex range: \\x" + startHex + "-\\x" + endHex);
+                            throw new IllegalArgumentException("Invalid regex: invalid hex range \\x" + startHex + "-\\x" + endHex);
                         }
                         
                         for (int val = startValue; val <= endValue; val++) {
@@ -549,7 +556,7 @@ public class RegexToDFAConverter {
                         i += 10; // Skip \x20-\x7E
                         continue;
                     } catch (NumberFormatException e) {
-                        throw new IllegalArgumentException("Invalid hex range: \\x" + startHex + "-\\x" + endHex);
+                        throw new IllegalArgumentException("Invalid regex: invalid hex range \\x" + startHex + "-\\x" + endHex);
                     }
                 }
                 
@@ -567,7 +574,7 @@ public class RegexToDFAConverter {
                 if (c == '\\') {
                     i++;
                     if (i >= charClass.length()) {
-                        throw new IllegalArgumentException("Incomplete escape sequence in character class");
+                        throw new IllegalArgumentException("Incomplete escape sequence");
                     }
                     c = charClass.charAt(i);
                     
@@ -580,7 +587,7 @@ public class RegexToDFAConverter {
                             i += 3; // Skip \x20
                             continue;
                         } catch (NumberFormatException e) {
-                            throw new IllegalArgumentException("Invalid hex character: \\x" + hex);
+                            throw new IllegalArgumentException("Invalid regex: invalid hex character \\x" + hex);
                         }
                     }
                     
@@ -636,6 +643,18 @@ public class RegexToDFAConverter {
         dfa.addState(state, true); // accepting state
         dfa = dfa.setStartState(state);
         return dfa;
+    }
+    
+    /**
+     * Creates an NFA that accepts only the empty string.
+     */
+    private static NFA createEmptyStringNFA() {
+        Set<String> acceptingStates = new HashSet<String>();
+        String state = "empty_" + System.nanoTime();
+        acceptingStates.add(state);
+        
+        NFA nfa = new NFA(state, acceptingStates);
+        return nfa;
     }
 
     /**
