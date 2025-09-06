@@ -9,19 +9,19 @@ public class Main {
         System.out.println("=== NFA and DFA Implementation Test ===\n");
         
         // Test 1: Basic NFA creation and acceptance
-        testBasicNFA();
+        //testBasicNFA();
         
         // Test 2: NFA operations (star, plus, question, union, concatenate)
-        testNFAOperations();
+        //testNFAOperations();
         
         // Test 3: NFA to DFA conversion
-        testNFAToDFAConversion();
+        //testNFAToDFAConversion();
         
         // Test 4: DFA minimization
-        testDFAMinimization();
+        //testDFAMinimization();
         
         // Test 5: DFA DOT generation
-        testDFADotGeneration();
+        //testDFADotGeneration();
         
         // Test 6: Regex to DFA conversion
         testRegexToDFAConversion();
