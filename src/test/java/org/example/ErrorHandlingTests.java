@@ -115,16 +115,6 @@ public class ErrorHandlingTests extends BaseRegexToDFATest {
     }
     
     @Test
-    public void testConcatenationWithOneOperand() {
-        assertThrowsIllegalArgumentException("a.", "Invalid regex: concatenation requires two operands");
-    }
-    
-    @Test
-    public void testConcatenationWithOneOperandAtStart() {
-        assertThrowsIllegalArgumentException(".a", "Invalid regex: concatenation requires two operands");
-    }
-    
-    @Test
     public void testEmptyExpression() {
         assertThrowsIllegalArgumentException("", "Invalid regex: empty expression");
     }

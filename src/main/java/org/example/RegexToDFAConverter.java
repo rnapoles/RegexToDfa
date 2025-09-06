@@ -52,7 +52,7 @@ public class RegexToDFAConverter {
         String postfixRegex = infixToPostfix(processedRegex);
         
         // Debug: print postfix for troubleshooting
-        // System.out.println("Postfix for '" + processedRegex + "': '" + postfixRegex + "'");
+        System.out.println("Postfix for '" + processedRegex + "': '" + postfixRegex + "'");
         
         // Build NFA from postfix notation
         return buildNFAFromPostfix(postfixRegex);
