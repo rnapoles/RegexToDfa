@@ -259,7 +259,13 @@ public class RegexToDFAConverter {
                     operators.push('.');
                 }
                 
-                if (c == '[') {
+                if (c == '\\' && i + 1 < infix.length()) {
+                    // Handle escape sequences
+                    postfix.append(c);
+                    postfix.append(infix.charAt(i + 1));
+                    i++; // Skip the next character
+                    needConcat = true;
+                } else if (c == '[') {
                     // Handle character class
                     StringBuilder charClass = new StringBuilder();
                     charClass.append('[');
@@ -359,8 +365,16 @@ public class RegexToDFAConverter {
             char c = postfix.charAt(i);
             
             if (isOperand(c)) {
-                // Create NFA for single character
-                nfaStack.push(createCharacterNFA(c));
+                // Handle escape sequences
+                if (c == '\\' && i + 1 < postfix.length()) {
+                    char nextChar = postfix.charAt(i + 1);
+                    char actualChar = getEscapedCharacter(nextChar);
+                    nfaStack.push(createCharacterNFA(actualChar));
+                    i++; // Skip the next character as it's part of the escape sequence
+                } else {
+                    // Create NFA for single character
+                    nfaStack.push(createCharacterNFA(c));
+                }
             } else if (c == '[') {
                 // Handle character class
                 StringBuilder charClass = new StringBuilder();
@@ -421,6 +435,36 @@ public class RegexToDFAConverter {
         }
         
         return nfaStack.pop();
+    }
+    
+    /**
+     * Converts an escape sequence character to its actual character value.
+     */
+    private static char getEscapedCharacter(char c) {
+        switch (c) {
+            case 't':
+                return '\t';
+            case 'n':
+                return '\n';
+            case 'r':
+                return '\r';
+            case '\\':
+                return '\\';
+            case '[':
+            case ']':
+            case '(':
+            case ')':
+            case '*':
+            case '+':
+            case '?':
+            case '|':
+            case '.':
+            case '^':
+            case '$':
+                return c; // Return the literal character
+            default:
+                return c; // For unrecognized escape sequences, return the character as-is
+        }
     }
     
     /**
