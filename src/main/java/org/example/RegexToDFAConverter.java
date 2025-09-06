@@ -28,8 +28,7 @@ public class RegexToDFAConverter {
         }
         
         if (regex.isEmpty()) {
-            // Empty regex matches empty string
-            return createEmptyStringDFA();
+            throw new IllegalArgumentException("Invalid regex: empty expression");
         }
         
         // Parse the regex and convert to NFA using Thompson construction
@@ -51,6 +50,9 @@ public class RegexToDFAConverter {
         
         // Convert to postfix notation (Reverse Polish Notation)
         String postfixRegex = infixToPostfix(processedRegex);
+        
+        // Debug: print postfix for troubleshooting
+        // System.out.println("Postfix for '" + processedRegex + "': '" + postfixRegex + "'");
         
         // Build NFA from postfix notation
         return buildNFAFromPostfix(postfixRegex);
@@ -218,8 +220,8 @@ public class RegexToDFAConverter {
                     }
                 }
             } else if (c == '.' && !inCharacterClass) {
-                // Replace . with character class that includes newlines and common characters
-                result.append("[ -~\\n\\r\\t]");
+                // Keep . as is for now - it will be handled as a wildcard in postfix conversion
+                result.append(c);
             } else {
                 result.append(c);
             }
@@ -383,6 +385,9 @@ public class RegexToDFAConverter {
                     char actualChar = getEscapedCharacter(nextChar);
                     nfaStack.push(createCharacterNFA(actualChar));
                     i++; // Skip the next character as it's part of the escape sequence
+                } else if (c == '.') {
+                    // Create NFA for wildcard (any character)
+                    nfaStack.push(createWildcardNFA());
                 } else {
                     // Create NFA for single character
                     nfaStack.push(createCharacterNFA(c));
@@ -650,12 +655,35 @@ public class RegexToDFAConverter {
     /**
      * Creates an NFA that accepts only the empty string.
      */
-    private static NFA createEmptyStringNFA() {
+     private static NFA createEmptyStringNFA() {
         Set<String> acceptingStates = new HashSet<String>();
         String state = "empty_" + System.nanoTime();
         acceptingStates.add(state);
         
         NFA nfa = new NFA(state, acceptingStates);
+        return nfa;
+    }
+    
+    /**
+     * Creates an NFA for wildcard (matches any character).
+     */
+    private static NFA createWildcardNFA() {
+        Set<String> acceptingStates = new HashSet<String>();
+        String acceptState = "accept_" + System.nanoTime();
+        acceptingStates.add(acceptState);
+        
+        String startState = "start_" + System.nanoTime();
+        NFA nfa = new NFA(startState, acceptingStates);
+        
+        // Add transitions for all printable ASCII characters
+        for (char c = 32; c <= 126; c++) {
+            nfa.addTransition(startState, c, acceptState);
+        }
+        // Add common whitespace characters
+        nfa.addTransition(startState, '\t', acceptState);
+        nfa.addTransition(startState, '\n', acceptState);
+        nfa.addTransition(startState, '\r', acceptState);
+        
         return nfa;
     }
 
@@ -673,7 +701,8 @@ public class RegexToDFAConverter {
         }
         
         // Check if it's a special character that's not an operator
-        if ("()[]{}*+?|.^$".indexOf(c) != -1) {
+        // Note: '.' is a wildcard operand, not an operator
+        if ("()[]{}*+?|^$".indexOf(c) != -1) {
             return false;
         }
         
