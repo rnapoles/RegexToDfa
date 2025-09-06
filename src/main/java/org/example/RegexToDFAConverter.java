@@ -758,7 +758,7 @@ public class RegexToDFAConverter {
         
         // Check if it's a special character that's not an operator
         // Note: '.' is a wildcard operand, not an operator
-        if ("()[]{}*+?|^$".indexOf(c) != -1) {
+        if ("()[]{}*+?|^$&".indexOf(c) != -1) {
             return false;
         }
         
