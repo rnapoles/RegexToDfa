@@ -22,6 +22,9 @@ public class Main {
         
         // Test 5: DFA DOT generation
         testDFADotGeneration();
+        
+        // Test 6: Regex to DFA conversion
+        testRegexToDFAConversion();
     }
     
     private static void testBasicNFA() {
@@ -256,6 +259,131 @@ public class Main {
             String displayString = dotTests[i].isEmpty() ? "'' (empty)" : "'" + dotTests[i] + "'";
             System.out.println(displayString + " - Expected: " + expected + 
                              ", Received: " + received + " " + status);
+        }
+        System.out.println();
+    }
+    
+    private static void testRegexToDFAConversion() {
+        System.out.println("--- Test 6: Regex to DFA Conversion ---");
+        
+        // Test basic metacharacters
+        testRegexPattern("a", "Basic character", new String[]{"a"}, new boolean[]{true});
+        testRegexPattern("ab", "Concatenation", new String[]{"ab", "a", "b"}, new boolean[]{true, false, false});
+        testRegexPattern("a|b", "Union", new String[]{"a", "b", "ab"}, new boolean[]{true, true, false});
+        testRegexPattern("a*", "Kleene star", new String[]{"", "a", "aa", "aaa", "b"}, new boolean[]{true, true, true, true, false});
+        testRegexPattern("a+", "Plus", new String[]{"", "a", "aa", "aaa", "b"}, new boolean[]{false, true, true, true, false});
+        testRegexPattern("a?", "Question", new String[]{"", "a", "aa", "b"}, new boolean[]{true, true, false, false});
+        
+        // Test complex patterns
+        testRegexPattern("(a|b)*", "Complex union with star", 
+                       new String[]{"", "a", "b", "ab", "ba", "aab", "c"}, 
+                       new boolean[]{true, true, true, true, true, true, false});
+        
+        testRegexPattern("a(b|c)*", "Concatenation with union and star", 
+                       new String[]{"a", "ab", "ac", "abc", "acb", "b", "c"}, 
+                       new boolean[]{true, true, true, true, true, false, false});
+        
+        // Test character classes
+        testRegexPattern("[abc]", "Character class", 
+                       new String[]{"a", "b", "c", "d", "ab"}, 
+                       new boolean[]{true, true, true, false, false});
+        
+        testRegexPattern("[a-z]", "Character range", 
+                       new String[]{"a", "z", "m", "A", "0"}, 
+                       new boolean[]{true, true, true, false, false});
+        
+        testRegexPattern("[^abc]", "Negated character class", 
+                       new String[]{"d", "e", "a", "b", "c"}, 
+                       new boolean[]{true, true, false, false, false});
+        
+        // Test escape sequences
+        testRegexPattern("\\s", "Whitespace character", 
+                       new String[]{" ", "\t", "\n", "\r", "a"}, 
+                       new boolean[]{true, true, true, true, false});
+        
+        testRegexPattern("\\t", "Tab character", 
+                       new String[]{"\t", " ", "a"}, 
+                       new boolean[]{true, false, false});
+        
+        testRegexPattern("\\n", "Newline character", 
+                       new String[]{"\n", " ", "a"}, 
+                       new boolean[]{true, false, false});
+        
+        testRegexPattern("\\r", "Carriage return character", 
+                       new String[]{"\r", " ", "a"}, 
+                       new boolean[]{true, false, false});
+        
+        testRegexPattern("\\\\", "Escaped backslash", 
+                       new String[]{"\\", "a", "b"}, 
+                       new boolean[]{true, false, false});
+        
+        // Test dot (any character)
+        testRegexPattern(".", "Any character", 
+                       new String[]{"a", "b", "1", " ", ""}, 
+                       new boolean[]{true, true, true, true, false});
+        
+        testRegexPattern("a.b", "Any character between a and b", 
+                       new String[]{"aab", "acb", "a1b", "ab", "a"}, 
+                       new boolean[]{true, true, true, false, false});
+        
+        // Test complex combinations
+        testRegexPattern("(a|b)+c*", "Complex pattern", 
+                       new String[]{"a", "b", "ac", "bc", "acc", "abc", "c"}, 
+                       new boolean[]{true, true, true, true, true, false, true});
+        
+        testRegexPattern("[0-9]+", "One or more digits", 
+                       new String[]{"1", "123", "0", "a", ""}, 
+                       new boolean[]{true, true, true, false, false});
+        
+        testRegexPattern("\\s*", "Zero or more whitespace", 
+                       new String[]{"", " ", "\t", "  ", "a"}, 
+                       new boolean[]{true, true, true, true, false});
+        
+        // Test edge cases
+        testRegexPattern("", "Empty regex", 
+                       new String[]{"", "a", "ab"}, 
+                       new boolean[]{true, false, false});
+        
+        testRegexPattern("a?", "Optional character", 
+                       new String[]{"", "a", "aa"}, 
+                       new boolean[]{true, true, false});
+        
+        System.out.println();
+    }
+    
+    private static void testRegexPattern(String regex, String description, String[] testStrings, boolean[] expectedResults) {
+        System.out.println(description + " (" + regex + "):");
+        
+        try {
+            DFA dfa = RegexToDFAConverter.convert(regex);
+            
+            for (int i = 0; i < testStrings.length; i++) {
+                boolean received = dfa.accepts(testStrings[i]);
+                boolean expected = expectedResults[i];
+                String status = (received == expected) ? "✓ PASS" : "✗ FAIL";
+                
+                String displayString = testStrings[i];
+                if (displayString.isEmpty()) {
+                    displayString = "'' (empty)";
+                } else if (displayString.equals("\t")) {
+                    displayString = "'\\t' (tab)";
+                } else if (displayString.equals("\n")) {
+                    displayString = "'\\n' (newline)";
+                } else if (displayString.equals("\r")) {
+                    displayString = "'\\r' (carriage return)";
+                } else if (displayString.equals(" ")) {
+                    displayString = "' ' (space)";
+                } else if (displayString.equals("\\")) {
+                    displayString = "'\\\\' (backslash)";
+                } else {
+                    displayString = "'" + displayString + "'";
+                }
+                
+                System.out.println("  " + displayString + " - Expected: " + expected + 
+                                 ", Received: " + received + " " + status);
+            }
+        } catch (Exception e) {
+            System.out.println("  ✗ ERROR: " + e.getMessage());
         }
         System.out.println();
     }
