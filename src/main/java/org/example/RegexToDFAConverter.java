@@ -275,6 +275,10 @@ public class RegexToDFAConverter {
             } else if (c == '.' && !inCharacterClass) {
                 // Keep . as is for now - it will be handled as a wildcard in postfix conversion
                 result.append(c);
+            } else if (c == '{' && !inCharacterClass && !escaped) {
+                // For now, just pass through {n,m} quantifiers as-is
+                // TODO: Implement proper {n,m} quantifier handling
+                result.append(c);
             } else {
                 result.append(c);
             }
@@ -288,6 +292,180 @@ public class RegexToDFAConverter {
             throw new IllegalArgumentException("Unclosed character class");
         }
         
+        return result.toString();
+    }
+    
+    /**
+     * Information about a parsed quantifier.
+     */
+    private static class QuantifierInfo {
+        String replacement;
+        int length;
+        
+        QuantifierInfo(String replacement, int length) {
+            this.replacement = replacement;
+            this.length = length;
+        }
+    }
+    
+    /**
+     * Parses a quantifier pattern like {n,m}, {n,}, or {n} and converts it to equivalent regex.
+     * Returns null if the pattern is not a valid quantifier.
+     */
+    private static QuantifierInfo parseQuantifier(String regex, int start) {
+        if (start + 1 >= regex.length()) {
+            return null;
+        }
+        
+        int end = start + 1;
+        while (end < regex.length() && regex.charAt(end) != '}') {
+            end++;
+        }
+        
+        if (end >= regex.length()) {
+            return null; // No closing brace found
+        }
+        
+        String content = regex.substring(start + 1, end);
+        int totalLength = end - start + 1; // Include the braces
+        
+        // Parse different quantifier patterns
+        if (content.contains(",")) {
+            String[] parts = content.split(",", 2);
+            if (parts.length != 2) {
+                return null;
+            }
+            
+            try {
+                if (parts[1].isEmpty()) {
+                    // {n,} - n or more occurrences
+                    int n = Integer.parseInt(parts[0]);
+                    if (n < 0) {
+                        return null;
+                    }
+                    String replacement = generateAtLeastNQuantifier(n);
+                    return new QuantifierInfo(replacement, totalLength);
+                } else {
+                    // {n,m} - between n and m occurrences
+                    int n = Integer.parseInt(parts[0]);
+                    int m = Integer.parseInt(parts[1]);
+                    if (n < 0 || m < n) {
+                        return null;
+                    }
+                    String replacement = generateRangeQuantifier(n, m);
+                    return new QuantifierInfo(replacement, totalLength);
+                }
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        } else {
+            // {n} - exactly n occurrences
+            try {
+                int n = Integer.parseInt(content);
+                if (n < 0) {
+                    return null;
+                }
+                String replacement = generateExactlyNQuantifier(n);
+                return new QuantifierInfo(replacement, totalLength);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+    }
+    
+    /**
+     * Generates regex for exactly n occurrences: a{n} -> aaaa...a (n times)
+     * This is handled by implicit concatenation in the postfix conversion
+     */
+    private static String generateExactlyNQuantifier(int n) {
+        if (n == 0) {
+            return ""; // Empty string
+        }
+        if (n == 1) {
+            return ""; // No quantifier needed
+        }
+        
+        // For n > 1, we need to create n-1 concatenation operators
+        // This will be handled by the postfix conversion
+        StringBuilder result = new StringBuilder();
+        for (int i = 1; i < n; i++) {
+            result.append("&");
+        }
+        return result.toString();
+    }
+    
+    /**
+     * Generates regex for n or more occurrences: a{n,} -> a^n a*
+     * For {2,}, we need: exactly 2 occurrences followed by *
+     * In postfix: a a & * (where a is the operand)
+     */
+    private static String generateAtLeastNQuantifier(int n) {
+        if (n == 0) {
+            return "*"; // Zero or more
+        }
+        if (n == 1) {
+            return "+"; // One or more
+        }
+        
+        // For n > 1, we need: exactly n occurrences followed by *
+        // In postfix: a a ... a & & ... & * (n-1 concatenations)
+        StringBuilder result = new StringBuilder();
+        // First, duplicate the operand n-1 times (for concatenation)
+        for (int i = 1; i < n; i++) {
+            result.append("&");
+        }
+        // Then, the * quantifier for zero or more additional occurrences
+        result.append("*");
+        return result.toString();
+    }
+    
+    /**
+     * Generates regex for between n and m occurrences: a{n,m} -> a^n (a?)^(m-n)
+     */
+    private static String generateRangeQuantifier(int n, int m) {
+        if (n == m) {
+            return generateExactlyNQuantifier(n);
+        }
+        if (n == 0 && m == 1) {
+            return "?"; // Zero or one
+        }
+        if (n == 0) {
+            return generateAtMostMQuantifier(m);
+        }
+        if (m == Integer.MAX_VALUE) {
+            return generateAtLeastNQuantifier(n);
+        }
+        
+        // For n < m: exactly n occurrences followed by (m-n) optional occurrences
+        StringBuilder result = new StringBuilder();
+        // First, n-1 concatenation operators for exactly n occurrences
+        for (int i = 1; i < n; i++) {
+            result.append("&");
+        }
+        // Then, (m-n) optional occurrences: ? & ? & ... & ?
+        int additional = m - n;
+        for (int i = 0; i < additional; i++) {
+            result.append("?&");
+        }
+        return result.toString();
+    }
+    
+    /**
+     * Generates regex for at most m occurrences: a{0,m} -> (a?)^m
+     */
+    private static String generateAtMostMQuantifier(int m) {
+        if (m == 0) {
+            return ""; // Empty string
+        }
+        if (m == 1) {
+            return "?"; // Zero or one
+        }
+        
+        // For m > 1: m optional occurrences: ? & ? & ... & ?
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < m; i++) {
+            result.append("?&");
+        }
         return result.toString();
     }
     
@@ -408,6 +586,24 @@ public class RegexToDFAConverter {
                     needConcat = true;
                 } else {
                     needConcat = false;
+                }
+            } else if (c == '{') {
+                // Handle {n,m} quantifiers
+                QuantifierInfo quantifier = parseQuantifier(infix, i);
+                if (quantifier != null) {
+                    // Apply the quantifier to the last operand
+                    if (postfix.length() == 0) {
+                        throw new IllegalArgumentException("Nothing to repeat at position " + i);
+                    }
+                    
+                    // Add the quantifier operators to postfix
+                    postfix.append(quantifier.replacement);
+                    i += quantifier.length - 1; // Skip the processed characters
+                    needConcat = true;
+                } else {
+                    // Not a valid quantifier, treat as literal
+                    postfix.append(c);
+                    needConcat = true;
                 }
             }
         }
