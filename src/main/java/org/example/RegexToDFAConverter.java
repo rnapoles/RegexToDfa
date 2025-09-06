@@ -151,7 +151,9 @@ public class RegexToDFAConverter {
                         if (!hexDigits.matches("[0-9a-fA-F]{2}")) {
                             throw new IllegalArgumentException("Invalid regex: invalid hex character " + hexDigits);
                         }
-                        result.append("\\x").append(hexDigits);
+                        // Convert hex to actual character
+                        int hexValue = Integer.parseInt(hexDigits, 16);
+                        result.append((char) hexValue);
                         i += 2; // Skip the hex digits
                         break;
                     case '\\':
