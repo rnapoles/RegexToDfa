@@ -43,6 +43,9 @@ public class RegexToDFAConverter {
      * Parses a regular expression and converts it to an NFA using Thompson construction.
      */
     private static NFA parseRegexToNFA(String regex) {
+        // Validate the regex for basic syntax errors
+        validateRegex(regex);
+        
         // Preprocess the regex to handle escape sequences and character classes
         String processedRegex = preprocessRegex(regex);
         
@@ -51,6 +54,60 @@ public class RegexToDFAConverter {
         
         // Build NFA from postfix notation
         return buildNFAFromPostfix(postfixRegex);
+    }
+    
+    /**
+     * Validates the regex for basic syntax errors.
+     * @param regex the regex to validate
+     * @throws IllegalArgumentException if the regex is invalid
+     */
+    private static void validateRegex(String regex) {
+        // Check for operators without operands
+        if (regex.startsWith("*") || regex.startsWith("+") || regex.startsWith("?") || regex.startsWith("|")) {
+            throw new IllegalArgumentException("Invalid regex: " + regex.charAt(0) + " without operand");
+        }
+        
+        // Check for operators at the end (except for escaped ones)
+        char lastChar = regex.charAt(regex.length() - 1);
+        if ((lastChar == '|' || lastChar == '\\') && (regex.length() < 2 || regex.charAt(regex.length() - 2) != '\\')) {
+            throw new IllegalArgumentException("Invalid regex: " + lastChar + " at end of regex");
+        }
+        
+        // Check for invalid operator sequences
+        for (int i = 0; i < regex.length() - 1; i++) {
+            char current = regex.charAt(i);
+            char next = regex.charAt(i + 1);
+            
+            // Check for \ at end of string is handled in preprocessRegex
+            
+            // Check for invalid operator sequences like **, ++, ??, etc.
+            if ((current == '*' || current == '+' || current == '?') && 
+                (next == '*' || next == '+' || next == '?')) {
+                throw new IllegalArgumentException("Invalid operator sequence: " + current + next);
+            }
+            
+            // Check for | at start or end, or consecutive |
+            if (current == '|' && (i == 0 || next == '|' || next == ')')) {
+                throw new IllegalArgumentException("Invalid use of | operator");
+            }
+        }
+        
+        // Check for balanced parentheses
+        int balance = 0;
+        for (int i = 0; i < regex.length(); i++) {
+            char c = regex.charAt(i);
+            if (c == '(') {
+                balance++;
+            } else if (c == ')') {
+                balance--;
+                if (balance < 0) {
+                    throw new IllegalArgumentException("Mismatched parentheses");
+                }
+            }
+        }
+        if (balance != 0) {
+            throw new IllegalArgumentException("Mismatched parentheses");
+        }
     }
     
     /**
@@ -79,25 +136,82 @@ public class RegexToDFAConverter {
                     case 'r':
                         result.append("\\r"); // carriage return character
                         break;
+                    case 'x':
+                        // Handle hex escape sequences (\xHH)
+                        if (i + 2 >= regex.length()) {
+                            throw new IllegalArgumentException("Incomplete hex escape sequence");
+                        }
+                        String hexDigits = regex.substring(i + 1, i + 3);
+                        if (!hexDigits.matches("[0-9a-fA-F]{2}")) {
+                            throw new IllegalArgumentException("Invalid hex character: " + hexDigits);
+                        }
+                        result.append("\\x").append(hexDigits);
+                        i += 2; // Skip the hex digits
+                        break;
                     case '\\':
                         result.append("\\\\"); // literal backslash
                         break;
+                    case '[':
+                    case ']':
+                    case '(':
+                    case ')':
+                    case '*':
+                    case '+':
+                    case '?':
+                    case '|':
+                    case '.':
+                    case '^':
+                    case '$':
+                        // Escape special regex characters
+                        result.append("\\").append(c);
+                        break;
                     default:
-                        result.append(c); // literal character
+                        // Unrecognized escape sequence, treat as literal
+                        result.append(c);
                         break;
                 }
                 escaped = false;
             } else if (c == '\\') {
                 escaped = true;
             } else if (c == '[') {
+                if (inCharacterClass) {
+                    throw new IllegalArgumentException("Nested character classes are not supported");
+                }
                 inCharacterClass = true;
                 result.append(c);
+                
+                // Check for empty character class
+                if (i + 1 < regex.length() && regex.charAt(i + 1) == ']') {
+                    throw new IllegalArgumentException("Empty character class");
+                }
             } else if (c == ']') {
+                if (!inCharacterClass) {
+                    throw new IllegalArgumentException("Unmatched ']'");
+                }
                 inCharacterClass = false;
                 result.append(c);
+            } else if (c == '-' && inCharacterClass) {
+                // Handle character ranges in character class
+                if (i == 0 || i == regex.length() - 1 || regex.charAt(i - 1) == '[' || regex.charAt(i - 1) == '^') {
+                    // Treat as literal -
+                    result.append("\\-");
+                } else {
+                    char prev = regex.charAt(i - 1);
+                    char next = i + 1 < regex.length() ? regex.charAt(i + 1) : '\0';
+                    
+                    if (next == ']') {
+                        // Treat as literal -
+                        result.append("\\-");
+                    } else if (next <= prev) {
+                        throw new IllegalArgumentException("Invalid character range: " + prev + "-" + next);
+                    } else {
+                        // Valid range, leave as is
+                        result.append("-");
+                    }
+                }
             } else if (c == '.' && !inCharacterClass) {
                 // Replace . with character class for all printable characters
-                result.append("[\\x20-\\x7E]");
+                result.append("[^\\n]");
             } else {
                 result.append(c);
             }
@@ -107,34 +221,77 @@ public class RegexToDFAConverter {
             throw new IllegalArgumentException("Incomplete escape sequence at end of regex");
         }
         
+        if (inCharacterClass) {
+            throw new IllegalArgumentException("Unclosed character class");
+        }
+        
         return result.toString();
     }
     
     /**
      * Converts infix notation to postfix notation (Reverse Polish Notation).
+     * Handles operator precedence and implicit concatenation.
+     * 
+     * @param infix the infix regex expression
+     * @return the postfix notation of the regex
+     * @throws IllegalArgumentException if the regex has invalid syntax
      */
     private static String infixToPostfix(String infix) {
+        if (infix == null || infix.isEmpty()) {
+            return "";
+        }
+        
         StringBuilder postfix = new StringBuilder();
-        Stack<Character> operators = new Stack<Character>();
+        Stack<Character> operators = new Stack<>();
         boolean needConcat = false;
         
         for (int i = 0; i < infix.length(); i++) {
             char c = infix.charAt(i);
             
-            if (isOperand(c)) {
+            if (isOperand(c) || c == '[') {
+                // Handle operands and character classes
                 if (needConcat) {
-                    // Add concatenation operator
+                    // Add implicit concatenation operator
                     while (!operators.isEmpty() && 
                            getPrecedence(operators.peek()) >= getPrecedence('.')) {
                         postfix.append(operators.pop());
                     }
                     operators.push('.');
                 }
-                postfix.append(c);
+                
+                if (c == '[') {
+                    // Handle character class
+                    StringBuilder charClass = new StringBuilder();
+                    charClass.append('[');
+                    i++; // Skip '['
+                    
+                    boolean inEscape = false;
+                    while (i < infix.length()) {
+                        char cc = infix.charAt(i);
+                        charClass.append(cc);
+                        
+                        if (inEscape) {
+                            inEscape = false;
+                        } else if (cc == '\\') {
+                            inEscape = true;
+                        } else if (cc == ']') {
+                            break;
+                        }
+                        i++;
+                    }
+                    
+                    if (i >= infix.length()) {
+                        throw new IllegalArgumentException("Unclosed character class");
+                    }
+                    
+                    postfix.append(charClass.toString());
+                } else {
+                    postfix.append(c);
+                }
                 needConcat = true;
             } else if (c == '(') {
                 if (needConcat) {
-                    // Add concatenation operator
+                    // Add implicit concatenation operator before opening parenthesis
                     while (!operators.isEmpty() && 
                            getPrecedence(operators.peek()) >= getPrecedence('.')) {
                         postfix.append(operators.pop());
@@ -144,6 +301,7 @@ public class RegexToDFAConverter {
                 operators.push(c);
                 needConcat = false;
             } else if (c == ')') {
+                // Pop until matching '(' is found
                 while (!operators.isEmpty() && operators.peek() != '(') {
                     postfix.append(operators.pop());
                 }
@@ -153,6 +311,18 @@ public class RegexToDFAConverter {
                 operators.pop(); // Remove '('
                 needConcat = true;
             } else if (isOperator(c)) {
+                if (c == '|' && (i == 0 || i == infix.length() - 1)) {
+                    throw new IllegalArgumentException("Invalid use of | operator");
+                }
+                
+                // Handle unary operators (they don't need an operand before them)
+                if (c == '*' || c == '+' || c == '?') {
+                    if (i == 0 || (i > 0 && isOperator(infix.charAt(i - 1)) && infix.charAt(i - 1) != ')')) {
+                        throw new IllegalArgumentException("Nothing to repeat at position " + i);
+                    }
+                }
+                
+                // Handle binary operators
                 while (!operators.isEmpty() && 
                        operators.peek() != '(' &&
                        getPrecedence(operators.peek()) >= getPrecedence(c)) {
@@ -160,32 +330,6 @@ public class RegexToDFAConverter {
                 }
                 operators.push(c);
                 needConcat = false;
-            } else if (c == '[') {
-                // Handle character class
-                StringBuilder charClass = new StringBuilder();
-                charClass.append(c);
-                i++; // Skip '['
-                
-                while (i < infix.length() && infix.charAt(i) != ']') {
-                    charClass.append(infix.charAt(i));
-                    i++;
-                }
-                
-                if (i >= infix.length()) {
-                    throw new IllegalArgumentException("Unclosed character class");
-                }
-                charClass.append(']'); // Add closing ']'
-                
-                if (needConcat) {
-                    // Add concatenation operator
-                    while (!operators.isEmpty() && 
-                           getPrecedence(operators.peek()) >= getPrecedence('.')) {
-                        postfix.append(operators.pop());
-                    }
-                    operators.push('.');
-                }
-                postfix.append(charClass.toString());
-                needConcat = true;
             }
         }
         
@@ -440,37 +584,65 @@ public class RegexToDFAConverter {
         dfa = dfa.setStartState(state);
         return dfa;
     }
-    
+
     /**
-     * Checks if a character is an operand (not an operator).
+     * Returns true if the character is an operand (not an operator).
+     * In regex, operands are any characters that are not operators or special characters.
+     * 
+     * @param c the character to check
+     * @return true if the character is an operand
      */
     private static boolean isOperand(char c) {
-        return c != '*' && c != '+' && c != '?' && c != '|' && c != '.' && 
-               c != '(' && c != ')' && c != '[' && c != ']';
+        // Special case: if it's a backslash, it's part of an escape sequence
+        if (c == '\\') {
+            return true;
+        }
+        
+        // Check if it's a special character that's not an operator
+        if ("()[]{}*+?|.^$".indexOf(c) != -1) {
+            return false;
+        }
+        
+        // All other characters are operands
+        return true;
     }
     
     /**
-     * Checks if a character is an operator.
+     * Returns true if the character is an operator in regex.
+     * 
+     * @param c the character to check
+     * @return true if the character is an operator
      */
     private static boolean isOperator(char c) {
-        return c == '*' || c == '+' || c == '?' || c == '|' || c == '.';
+        return "*+?|.".indexOf(c) != -1;
     }
     
     /**
      * Returns the precedence of an operator.
+     * Higher number means higher precedence.
+     * 
+     * @param op the operator character
+     * @return the precedence value
+     * @throws IllegalArgumentException if the character is not a valid operator
      */
-    private static int getPrecedence(char operator) {
-        switch (operator) {
+    private static int getPrecedence(char op) {
+        switch (op) {
+            case '|':
+                return 1;  // Lowest precedence
+            case '.':
+                return 2;  // Concatenation (implicit operator)
+            case '?':
             case '*':
             case '+':
-            case '?':
-                return 3; // highest precedence
-            case '.':
-                return 2; // concatenation
-            case '|':
-                return 1; // union - lowest precedence
+                return 3;  // Quantifiers (highest precedence)
+            case '^':
+            case '$':
+                return 4;  // Anchors (highest precedence)
+            case '(':
+            case ')':
+                return 0;  // Parentheses have lowest precedence for stack operations
             default:
-                return 0;
+                throw new IllegalArgumentException("Not an operator: " + op);
         }
     }
 }
