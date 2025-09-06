@@ -329,7 +329,13 @@ public class RegexToDFAConverter {
                     postfix.append(operators.pop());
                 }
                 operators.push(c);
-                needConcat = false;
+                
+                // For unary postfix operators (*, +, ?), we still need concatenation after them
+                if (c == '*' || c == '+' || c == '?') {
+                    needConcat = true;
+                } else {
+                    needConcat = false;
+                }
             }
         }
         
@@ -349,7 +355,6 @@ public class RegexToDFAConverter {
      */
     private static NFA buildNFAFromPostfix(String postfix) {
         Stack<NFA> nfaStack = new Stack<NFA>();
-        
         for (int i = 0; i < postfix.length(); i++) {
             char c = postfix.charAt(i);
             
