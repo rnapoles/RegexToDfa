@@ -13,6 +13,8 @@
         <maven.compiler.target>23</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>5.10.1</junit.version>
+        <forked.timeout>60</forked.timeout>
+        <surefire.timeout>60</surefire.timeout>
     </properties>
 
     <dependencies>
@@ -32,12 +34,23 @@
 
     <build>
         <plugins>
+            
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.2</version>
+                <!-- Use a recent version -->
+                <version>3.2.5</version> 
+                <configuration>
+                    <argLine>-Xmx512m -Xms256m</argLine>
+                    <forkedProcessTimeoutInSeconds>300</forkedProcessTimeoutInSeconds>
+                    <forkCount>1</forkCount>
+                    <reuseForks>false</reuseForks>
+                    <!-- Example: 1 hour -->
+                    <forkedProcessTimeoutInSeconds>60</forkedProcessTimeoutInSeconds> 
+                </configuration>
             </plugin>
         </plugins>
+        
     </build>
 
 </project>

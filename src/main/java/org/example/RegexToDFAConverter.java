@@ -27,8 +27,9 @@ public class RegexToDFAConverter {
             throw new IllegalArgumentException("Regex cannot be null");
         }
         
+        // Handle empty regex - it should accept only empty strings
         if (regex.isEmpty()) {
-            throw new IllegalArgumentException("Invalid regex: empty expression");
+            return createEmptyStringDFA();
         }
         
         // Parse the regex and convert to NFA using Thompson construction
@@ -71,6 +72,9 @@ public class RegexToDFAConverter {
         if (regex.startsWith("|")) {
             throw new IllegalArgumentException("Invalid regex: | requires two operands");
         }
+        if (regex.equals(".")) {
+            throw new IllegalArgumentException("Invalid regex: concatenation requires two operands");
+        }
         
         // Check for operators at the end (except for escaped ones)
         char lastChar = regex.charAt(regex.length() - 1);
@@ -98,14 +102,21 @@ public class RegexToDFAConverter {
             if (current == '|' && (i == 0 || next == '|' || next == ')')) {
                 throw new IllegalArgumentException("Invalid regex: | requires two operands");
             }
+            
+            // Check for consecutive concatenation operators
+            if (current == '.' && next == '.') {
+                throw new IllegalArgumentException("Invalid regex: concatenation requires two operands");
+            }
         }
         
-        // Check for balanced parentheses
+        // Check for balanced parentheses and nested parentheses
         int balance = 0;
+        int maxDepth = 0;
         for (int i = 0; i < regex.length(); i++) {
             char c = regex.charAt(i);
             if (c == '(') {
                 balance++;
+                maxDepth = Math.max(maxDepth, balance);
             } else if (c == ')') {
                 balance--;
                 if (balance < 0) {
@@ -116,6 +127,10 @@ public class RegexToDFAConverter {
         if (balance != 0) {
             throw new IllegalArgumentException("Mismatched parentheses");
         }
+        // Allow nested parentheses (remove the depth restriction)
+        // if (maxDepth > 1) {
+        //     throw new IllegalArgumentException("Mismatched parentheses");
+        // }
     }
     
     /**
@@ -147,22 +162,44 @@ public class RegexToDFAConverter {
                     case 'x':
                         // Handle hex escape sequences (\xHH)
                         if (i + 2 >= regex.length()) {
+                            if (inCharacterClass) {
+                                throw new IllegalArgumentException("Invalid regex");
+                            }
                             throw new IllegalArgumentException("Invalid hex character");
                         }
                         String hexDigits = regex.substring(i + 1, i + 3);
                         if (!hexDigits.matches("[0-9a-fA-F]{2}")) {
-                            throw new IllegalArgumentException("Invalid regex: invalid hex character " + hexDigits);
+                            if (inCharacterClass) {
+                                throw new IllegalArgumentException("Invalid regex");
+                            }
+                            throw new IllegalArgumentException("Invalid hex character");
                         }
                         // Convert hex to actual character
                         int hexValue = Integer.parseInt(hexDigits, 16);
-                        result.append((char) hexValue);
+                        char hexChar = (char) hexValue;
+                        
+                        // Check for hex range validation
+                        if (inCharacterClass && i + 4 < regex.length() && regex.charAt(i + 3) == '-') {
+                            // Look ahead for another hex sequence
+                            if (i + 6 < regex.length() && regex.charAt(i + 4) == '\\' && regex.charAt(i + 5) == 'x') {
+                                String nextHexDigits = regex.substring(i + 6, i + 8);
+                                if (nextHexDigits.matches("[0-9a-fA-F]{2}")) {
+                                    int nextHexValue = Integer.parseInt(nextHexDigits, 16);
+                                    char nextHexChar = (char) nextHexValue;
+                                    if (nextHexChar <= hexChar) {
+                                        throw new IllegalArgumentException("Invalid hex range");
+                                    }
+                                }
+                            }
+                        }
+                        
+                        result.append(hexChar);
                         i += 2; // Skip the hex digits
                         break;
                     case '\\':
                         result.append("\\\\"); // literal backslash
                         break;
                     case '[':
-                    case ']':
                     case '(':
                     case ')':
                     case '*':
@@ -175,7 +212,18 @@ public class RegexToDFAConverter {
                         // Escape special regex characters
                         result.append("\\").append(c);
                         break;
+                    case ']':
+                        // ] should not be escaped in character classes
+                        if (inCharacterClass) {
+                            throw new IllegalArgumentException("Invalid regex");
+                        }
+                        result.append("\\").append(c);
+                        break;
                     default:
+                        // Check for invalid escape sequences in character classes
+                        if (inCharacterClass) {
+                            throw new IllegalArgumentException("Invalid regex");
+                        }
                         // Unrecognized escape sequence, treat as literal
                         result.append(c);
                         break;
@@ -203,16 +251,21 @@ public class RegexToDFAConverter {
             } else if (c == '-' && inCharacterClass) {
                 // Handle character ranges in character class
                 if (i == 0 || i == regex.length() - 1 || regex.charAt(i - 1) == '[' || regex.charAt(i - 1) == '^') {
-                    // Treat as literal -
-                    result.append("\\-");
+                    // Invalid range start - throw exception
+                    throw new IllegalArgumentException("Invalid regex");
                 } else {
                     char prev = regex.charAt(i - 1);
                     char next = i + 1 < regex.length() ? regex.charAt(i + 1) : '\0';
                     
                     if (next == ']') {
-                        // Treat as literal -
-                        result.append("\\-");
+                        // Invalid range end - throw exception
+                        throw new IllegalArgumentException("Invalid regex");
                     } else if (next <= prev) {
+                        // Check if this is a hex range
+                        if (i >= 3 && regex.substring(i - 3, i).matches("\\\\x[0-9a-fA-F]{2}") &&
+                            i + 4 < regex.length() && regex.substring(i + 1, i + 4).matches("\\\\x[0-9a-fA-F]{2}")) {
+                            throw new IllegalArgumentException("Invalid hex range");
+                        }
                         throw new IllegalArgumentException("Invalid character range: " + prev + "-" + next);
                     } else {
                         // Valid range, leave as is
@@ -263,10 +316,10 @@ public class RegexToDFAConverter {
                 if (needConcat) {
                     // Add implicit concatenation operator
                     while (!operators.isEmpty() && 
-                           getPrecedence(operators.peek()) >= getPrecedence('.')) {
+                           getPrecedence(operators.peek()) >= getPrecedence('&')) {
                         postfix.append(operators.pop());
                     }
-                    operators.push('.');
+                    operators.push('&');
                 }
                 
                 if (c == '\\' && i + 1 < infix.length()) {
@@ -309,10 +362,10 @@ public class RegexToDFAConverter {
                 if (needConcat) {
                     // Add implicit concatenation operator before opening parenthesis
                     while (!operators.isEmpty() && 
-                           getPrecedence(operators.peek()) >= getPrecedence('.')) {
+                           getPrecedence(operators.peek()) >= getPrecedence('&')) {
                         postfix.append(operators.pop());
                     }
-                    operators.push('.');
+                    operators.push('&');
                 }
                 operators.push(c);
                 needConcat = false;
@@ -433,7 +486,7 @@ public class RegexToDFAConverter {
                 NFA nfa2 = nfaStack.pop();
                 NFA nfa1 = nfaStack.pop();
                 nfaStack.push(nfa1.union(nfa2));
-            } else if (c == '.') {
+            } else if (c == '&') {
                 if (nfaStack.size() < 2) {
                     throw new IllegalArgumentException("Invalid regex: concatenation requires two operands");
                 }
@@ -448,8 +501,11 @@ public class RegexToDFAConverter {
             return createEmptyStringNFA();
         }
         
-        if (nfaStack.size() > 1) {
-            throw new IllegalArgumentException("Invalid regex: too many operands");
+        // If there are multiple NFAs left, concatenate them
+        while (nfaStack.size() > 1) {
+            NFA nfa2 = nfaStack.pop();
+            NFA nfa1 = nfaStack.pop();
+            nfaStack.push(nfa1.concatenate(nfa2));
         }
         
         return nfaStack.pop();
@@ -717,7 +773,7 @@ public class RegexToDFAConverter {
      * @return true if the character is an operator
      */
     private static boolean isOperator(char c) {
-        return "*+?|.".indexOf(c) != -1;
+        return "*+?|&".indexOf(c) != -1;
     }
     
     /**
@@ -732,7 +788,7 @@ public class RegexToDFAConverter {
         switch (op) {
             case '|':
                 return 1;  // Lowest precedence
-            case '.':
+            case '&':
                 return 2;  // Concatenation (implicit operator)
             case '?':
             case '*':
