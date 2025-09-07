@@ -406,7 +406,7 @@ public class Main {
             dfa.addTransition("q1", 'b', "q2");
             dfa = dfa.setStartState("q0");
             
-            String dfaLexerCode = CodeGen.generateLexer(dfa, "AbLexer", "com.example");
+            String dfaLexerCode = CodeGen.generateLexer(dfa, "AbLexer", "org.example");
             System.out.println("   Generated DFA lexer code length: " + dfaLexerCode.length() + " characters");
             System.out.println("   Contains class definition: " + dfaLexerCode.contains("class AbLexer"));
             System.out.println("   Contains token types: " + dfaLexerCode.contains("TOKEN_Q2"));
@@ -421,7 +421,7 @@ public class Main {
             nfa.addEpsilonTransition("q1", "q0");
             nfa.setStartState("q0");
             
-            String nfaLexerCode = CodeGen.generateLexer(nfa, "StarLexer", "com.example");
+            String nfaLexerCode = CodeGen.generateLexer(nfa, "StarLexer", "org.example");
             System.out.println("   Generated NFA lexer code length: " + nfaLexerCode.length() + " characters");
             System.out.println("   Contains class definition: " + nfaLexerCode.contains("class StarLexer"));
             System.out.println("   Contains epsilon closure: " + nfaLexerCode.contains("getEpsilonClosure"));
@@ -431,14 +431,14 @@ public class Main {
             Map<String, String> tokenTypes = new HashMap<>();
             tokenTypes.put("q2", "IDENTIFIER");
             
-            String customLexerCode = CodeGen.generateLexer(dfa, "CustomLexer", "com.example", tokenTypes);
+            String customLexerCode = CodeGen.generateLexer(dfa, "CustomLexer", "org.example", tokenTypes);
             System.out.println("   Contains custom token type: " + customLexerCode.contains("IDENTIFIER"));
             System.out.println("   Contains token constant: " + customLexerCode.contains("public static final String IDENTIFIER"));
             
             // Test 4: Generate lexer from regex
             System.out.println("\n4. Generating lexer from regex pattern '[0-9]+':");
-            DFA regexDfa = RegexToDFAConverter.convert("[0-9]+");
-            String regexLexerCode = CodeGen.generateLexer(regexDfa, "NumberLexer", "com.example");
+            DFA regexDfa = RegexToDFAConverter.convert("[a-z]+[A-Z0-9]+");
+            String regexLexerCode = CodeGen.generateLexer(regexDfa, "NumberLexer", "org.example");
             System.out.println("   Generated regex lexer code length: " + regexLexerCode.length() + " characters");
             System.out.println("   Contains class definition: " + regexLexerCode.contains("class NumberLexer"));
 
@@ -461,7 +461,7 @@ public class Main {
 
             // Test 6: Generate main class for testing
             System.out.println("\n6. Generating main class for testing:");
-            String mainClassCode = generator.generateLexerMainClass(dfa, "AbLexer", "AbLexerMain", "com.example", defaultTokenTypes);
+            String mainClassCode = generator.generateLexerMainClass(dfa, "AbLexer", "AbLexerMain", "org.example", defaultTokenTypes);
             System.out.println("   Generated main class code length: " + mainClassCode.length() + " characters");
             System.out.println("   Contains main method: " + mainClassCode.contains("public static void main"));
             System.out.println("   Contains interactive mode: " + mainClassCode.contains("runInteractiveMode"));
@@ -471,7 +471,7 @@ public class Main {
             System.out.println("\n7. Generating main class with custom token types:");
             Map<String, String> customTokenTypes = new HashMap<>();
             customTokenTypes.put("q2", "AB_PATTERN");
-            String customMainCode = generator.generateLexerMainClass(dfa, "AbLexer", "CustomAbMain", "com.example", customTokenTypes);
+            String customMainCode = generator.generateLexerMainClass(dfa, "AbLexer", "CustomAbMain", "org.example", customTokenTypes);
             System.out.println("   Contains custom token type: " + customMainCode.contains("AB_PATTERN"));
             System.out.println("\n✓ All lexer generation tests passed!");
 

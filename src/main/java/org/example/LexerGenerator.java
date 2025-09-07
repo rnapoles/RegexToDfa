@@ -164,18 +164,27 @@ public class LexerGenerator {
         context.put("acceptingStates", dfa.getAcceptingStates());
         context.put("isDFA", true);
         
+        // Create transition table using the new classes
+        TransitionTable transitionTable = TransitionTableBuilder.buildLexerOptimizedFromDFA(dfa);
+        context.put("transitionTable", transitionTable);
+        context.put("transitionTableArray", transitionTable.toArray());
+        
+        // Create sorted lists for template processing
+        List<String> sortedStates = new ArrayList<>(dfa.getStates());
+        Collections.sort(sortedStates);
+        List<Character> sortedAlphabet = new ArrayList<>(dfa.getAlphabet());
+        Collections.sort(sortedAlphabet);
+        context.put("sortedStates", sortedStates);
+        context.put("sortedAlphabet", sortedAlphabet);
+        
         // Create flattened transitions list for easier template processing
         List<Map<String, Object>> flattenedTransitions = new ArrayList<>();
-        for (Map.Entry<String, Map<Character, String>> entry : dfa.getTransitions().entrySet()) {
-            String fromState = entry.getKey();
-            Map<Character, String> stateTransitions = entry.getValue();
-            for (Map.Entry<Character, String> transition : stateTransitions.entrySet()) {
-                Map<String, Object> flatTransition = new HashMap<>();
-                flatTransition.put("fromState", fromState);
-                flatTransition.put("symbol", transition.getKey());
-                flatTransition.put("toState", transition.getValue());
-                flattenedTransitions.add(flatTransition);
-            }
+        for (TransitionEntry entry : transitionTable.getAllTransitions()) {
+            Map<String, Object> flatTransition = new HashMap<>();
+            flatTransition.put("fromState", entry.getFromState());
+            flatTransition.put("symbol", entry.getSymbol());
+            flatTransition.put("toState", entry.getToState());
+            flattenedTransitions.add(flatTransition);
         }
         context.put("flattenedTransitions", flattenedTransitions);
         
