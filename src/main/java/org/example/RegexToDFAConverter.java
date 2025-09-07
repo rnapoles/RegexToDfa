@@ -52,8 +52,6 @@ public class RegexToDFAConverter {
         // Convert to postfix notation (Reverse Polish Notation)
         String postfixRegex = infixToPostfix(processedRegex);
         
-        // Debug: print postfix for troubleshooting
-        System.out.println("Postfix for '" + processedRegex + "': '" + postfixRegex + "'");
         
         // Build NFA from postfix notation
         return buildNFAFromPostfix(postfixRegex);
@@ -140,158 +138,170 @@ public class RegexToDFAConverter {
         StringBuilder result = new StringBuilder();
         boolean inCharacterClass = false;
         boolean escaped = false;
-        
+
         for (int i = 0; i < regex.length(); i++) {
             char c = regex.charAt(i);
-            
+
             if (escaped) {
-                // Handle escape sequences
-                switch (c) {
-                    case 's':
-                        result.append("[\\s]"); // whitespace character class
-                        break;
-                    case 't':
-                        result.append("\\t"); // tab character
-                        break;
-                    case 'n':
-                        result.append("\\n"); // newline character
-                        break;
-                    case 'r':
-                        result.append("\\r"); // carriage return character
-                        break;
-                    case 'x':
-                        // Handle hex escape sequences (\xHH)
-                        if (i + 2 >= regex.length()) {
-                            if (inCharacterClass) {
-                                throw new IllegalArgumentException("Invalid regex");
-                            }
-                            throw new IllegalArgumentException("Invalid hex character");
-                        }
-                        String hexDigits = regex.substring(i + 1, i + 3);
-                        if (!hexDigits.matches("[0-9a-fA-F]{2}")) {
-                            if (inCharacterClass) {
-                                throw new IllegalArgumentException("Invalid regex");
-                            }
-                            throw new IllegalArgumentException("Invalid hex character");
-                        }
-                        // Convert hex to actual character
-                        int hexValue = Integer.parseInt(hexDigits, 16);
-                        char hexChar = (char) hexValue;
-                        
-                        // Check for hex range validation
-                        if (inCharacterClass && i + 4 < regex.length() && regex.charAt(i + 3) == '-') {
-                            // Look ahead for another hex sequence
-                            if (i + 6 < regex.length() && regex.charAt(i + 4) == '\\' && regex.charAt(i + 5) == 'x') {
-                                String nextHexDigits = regex.substring(i + 6, i + 8);
-                                if (nextHexDigits.matches("[0-9a-fA-F]{2}")) {
-                                    int nextHexValue = Integer.parseInt(nextHexDigits, 16);
-                                    char nextHexChar = (char) nextHexValue;
-                                    if (nextHexChar <= hexChar) {
-                                        throw new IllegalArgumentException("Invalid hex range");
-                                    }
-                                }
-                            }
-                        }
-                        
-                        result.append(hexChar);
-                        i += 2; // Skip the hex digits
-                        break;
-                    case '\\':
-                        result.append("\\\\"); // literal backslash
-                        break;
-                    case '[':
-                    case '(':
-                    case ')':
-                    case '*':
-                    case '+':
-                    case '?':
-                    case '|':
-                    case '.':
-                    case '^':
-                    case '$':
-                        // Escape special regex characters
-                        result.append("\\").append(c);
-                        break;
-                    case ']':
-                        // ] should not be escaped in character classes
-                        if (inCharacterClass) {
-                            throw new IllegalArgumentException("Invalid regex");
-                        }
-                        result.append("\\").append(c);
-                        break;
-                    default:
-                        // Check for invalid escape sequences in character classes
-                        if (inCharacterClass) {
-                            throw new IllegalArgumentException("Invalid regex");
-                        }
-                        // Unrecognized escape sequence, treat as literal
-                        result.append(c);
-                        break;
-                }
+                i = inCharacterClass
+                        ? handleEscapedInsideClass(regex, i, result)
+                        : handleEscapedOutsideClass(regex, i, result);
                 escaped = false;
-            } else if (c == '\\') {
+                continue;
+            }
+
+            if (c == '\\') {
                 escaped = true;
-            } else if (c == '[') {
+                continue;
+            }
+
+            if (c == '[') {
                 if (inCharacterClass) {
                     throw new IllegalArgumentException("Nested character classes are not supported");
                 }
+                ensureNonEmptyCharacterClass(regex, i);
                 inCharacterClass = true;
                 result.append(c);
-                
-                // Check for empty character class
-                if (i + 1 < regex.length() && regex.charAt(i + 1) == ']') {
-                    throw new IllegalArgumentException("Invalid regex: empty character class");
-                }
-            } else if (c == ']') {
+                continue;
+            }
+
+            if (c == ']') {
                 if (!inCharacterClass) {
                     throw new IllegalArgumentException("Unmatched ']'");
                 }
                 inCharacterClass = false;
                 result.append(c);
-            } else if (c == '-' && inCharacterClass) {
-                // Handle character ranges in character class
-                if (i == 0 || i == regex.length() - 1 || regex.charAt(i - 1) == '[' || regex.charAt(i - 1) == '^') {
-                    // Invalid range start - throw exception
-                    throw new IllegalArgumentException("Invalid regex");
-                } else {
-                    char prev = regex.charAt(i - 1);
-                    char next = i + 1 < regex.length() ? regex.charAt(i + 1) : '\0';
-                    
-                    if (next == ']') {
-                        // '-' at the end of a character class is a literal
-                        result.append('-');
-                    } else if (next <= prev) {
-                        // Check if this is a hex range
-                        if (i >= 3 && regex.substring(i - 3, i).matches("\\\\x[0-9a-fA-F]{2}") &&
-                            i + 4 < regex.length() && regex.substring(i + 1, i + 4).matches("\\\\x[0-9a-fA-F]{2}")) {
-                            throw new IllegalArgumentException("Invalid hex range");
-                        }
-                        throw new IllegalArgumentException("Invalid character range: " + prev + "-" + next);
-                    } else {
-                        // Valid range, leave as is
-                        result.append("-");
-                    }
-                }
-            } else if (c == '.' && !inCharacterClass) {
-                // Keep . as is for now - it will be handled as a wildcard in postfix conversion
-                result.append(c);
-            } else if (c == '{' && !inCharacterClass && !escaped) {
-                // Keep quantifiers as-is for now, they'll be handled in infix to postfix conversion
-                result.append(c);
-            } else {
-                result.append(c);
+                continue;
             }
+
+            if (c == '-' && inCharacterClass) {
+                appendDashInCharacterClass(regex, i, result);
+                continue;
+            }
+
+            if (c == '.' && !inCharacterClass) {
+                result.append(c);
+                continue;
+            }
+
+            if (c == '{' && !inCharacterClass) {
+                result.append(c);
+                continue;
+            }
+
+            result.append(c);
         }
-        
+
         if (escaped) {
             throw new IllegalArgumentException("Incomplete escape sequence");
         }
-        
+
         if (inCharacterClass) {
             throw new IllegalArgumentException("Unclosed character class");
         }
-        
+
         return result.toString();
+    }
+
+    private static void ensureNonEmptyCharacterClass(String regex, int indexOfOpenBracket) {
+        if (indexOfOpenBracket + 1 < regex.length() && regex.charAt(indexOfOpenBracket + 1) == ']') {
+            throw new IllegalArgumentException("Invalid regex: empty character class");
+        }
+    }
+
+    private static int handleEscapedInsideClass(String regex, int i, StringBuilder result) {
+        char c = regex.charAt(i);
+        if (c == ']') {
+            throw new IllegalArgumentException("Invalid regex");
+        }
+        if (c == 'x') {
+            validateHasHexDigits(regex, i);
+            String hexDigits = regex.substring(i + 1, i + 3);
+            result.append("\\x").append(hexDigits);
+            return i + 2; // Skip the hex digits
+        }
+        result.append("\\").append(c);
+        return i;
+    }
+
+    private static int handleEscapedOutsideClass(String regex, int i, StringBuilder result) {
+        char c = regex.charAt(i);
+        switch (c) {
+            case 's':
+                result.append("[\\s]");
+                break;
+            case 't':
+                result.append("\\t");
+                break;
+            case 'n':
+                result.append("\\n");
+                break;
+            case 'r':
+                result.append("\\r");
+                break;
+            case 'x':
+                validateHasHexDigits(regex, i);
+                String hexDigits = regex.substring(i + 1, i + 3);
+                int hexValue = Integer.parseInt(hexDigits, 16);
+                result.append((char) hexValue);
+                return i + 2; // Skip digits
+            case '\\':
+                result.append("\\\\");
+                break;
+            case '[':
+            case '(':
+            case ')':
+            case '*':
+            case '+':
+            case '?':
+            case '|':
+            case '.':
+            case '^':
+            case '$':
+                result.append("\\").append(c);
+                break;
+            case ']':
+                result.append("\\").append(c);
+                break;
+            default:
+                result.append(c);
+                break;
+        }
+        return i;
+    }
+
+    private static void validateHasHexDigits(String regex, int startIndexAfterBackslashOrX) {
+        if (startIndexAfterBackslashOrX + 2 >= regex.length()) {
+            throw new IllegalArgumentException("Invalid hex character");
+        }
+        String hexDigits = regex.substring(startIndexAfterBackslashOrX + 1, startIndexAfterBackslashOrX + 3);
+        if (!hexDigits.matches("[0-9a-fA-F]{2}")) {
+            throw new IllegalArgumentException("Invalid hex character");
+        }
+    }
+
+    private static void appendDashInCharacterClass(String regex, int i, StringBuilder result) {
+        if (i == 0 || i == regex.length() - 1 || regex.charAt(i - 1) == '[' || regex.charAt(i - 1) == '^') {
+            result.append('-');
+            return;
+        }
+        char prev = regex.charAt(i - 1);
+        char next = i + 1 < regex.length() ? regex.charAt(i + 1) : '\0';
+
+        if (next == ']') {
+            result.append('-');
+            return;
+        }
+
+        if (next <= prev) {
+            if (i >= 3 && regex.substring(i - 3, i).matches("\\\\x[0-9a-fA-F]{2}") &&
+                    i + 4 < regex.length() && regex.substring(i + 1, i + 4).matches("\\\\x[0-9a-fA-F]{2}")) {
+                throw new IllegalArgumentException("Invalid hex range");
+            }
+            throw new IllegalArgumentException("Invalid character range: " + prev + "-" + next);
+        }
+
+        result.append('-');
     }
     
     /**
@@ -525,147 +535,157 @@ public class RegexToDFAConverter {
         
         StringBuilder postfix = new StringBuilder();
         Stack<Character> operators = new Stack<>();
-        boolean lastCharWasOperand = false; // Tracks if the previous char was an operand for implicit concatenation
-        
-        System.out.println("Infix to Postfix conversion for: " + infix);
-        
+        boolean lastCharWasOperand = false;
+
         for (int i = 0; i < infix.length(); i++) {
             char c = infix.charAt(i);
-            System.out.println("\nProcessing char: '" + c + "' at index " + i + ", lastCharWasOperand: " + lastCharWasOperand);
-            System.out.println("Operators stack before: " + operators);
-            System.out.println("Postfix before: " + postfix);
-            
-            // Handle implicit concatenation
-            if (lastCharWasOperand && (isOperand(c) || c == '(' || c == '[')) {
-                System.out.println("Adding implicit concatenation");
-                while (!operators.isEmpty() && 
-                       getPrecedence(operators.peek()) >= getPrecedence('&')) {
-                    postfix.append(operators.pop());
-                }
+
+            if (shouldInsertConcat(lastCharWasOperand, c)) {
+                popHigherOrEqualPrecedence(operators, postfix, '&');
                 operators.push('&');
             }
-            
+
             if (isOperand(c)) {
-                // Handle escape sequences as operands
-                if (c == '\\' && i + 1 < infix.length()) {
-                    postfix.append(c);
-                    postfix.append(infix.charAt(i + 1));
-                    i++; // Skip the next character
-                } else {
-                    postfix.append(c);
-                }
+                i = appendOperandToken(infix, i, postfix);
                 lastCharWasOperand = true;
-            } else if (c == '[') {
-                // Handle character class
-                StringBuilder charClass = new StringBuilder();
-                charClass.append('[');
-                i++; // Skip '['
-                
-                boolean inEscape = false;
-                while (i < infix.length()) {
-                    char cc = infix.charAt(i);
-                    charClass.append(cc);
-                    
-                    if (inEscape) {
-                        inEscape = false;
-                    } else if (cc == '\\' && cc != ']') { // Don't escape ']' in character class unless explicitly escaped
-                        inEscape = true;
-                    } else if (cc == ']') {
-                        break;
-                    }
-                    i++;
-                }
-                
-                if (i >= infix.length()) {
-                    throw new IllegalArgumentException("Unclosed character class");
-                }
-                
-                postfix.append(charClass.toString());
+                continue;
+            }
+
+            if (c == '[') {
+                i = appendCharacterClassToken(infix, i, postfix);
                 lastCharWasOperand = true;
-            } else if (c == '(') {
+                continue;
+            }
+
+            if (c == '(') {
                 operators.push(c);
                 lastCharWasOperand = false;
-            } else if (c == ')') {
-                while (!operators.isEmpty() && operators.peek() != '(') {
-                    postfix.append(operators.pop());
-                }
-                if (operators.isEmpty()) {
-                    throw new IllegalArgumentException("Mismatched parentheses");
-                }
-                operators.pop(); // Remove '('
-                lastCharWasOperand = true;
-            } else if (isOperator(c)) {
-                if (c == '|' && (i == 0 || i == infix.length() - 1)) {
-                    throw new IllegalArgumentException("Invalid use of | operator");
-                }
-                
-                // For operators, pop higher or equal precedence operators from stack
-                while (!operators.isEmpty() && 
-                       operators.peek() != '(' &&
-                       getPrecedence(operators.peek()) >= getPrecedence(c)) {
-                    postfix.append(operators.pop());
-                }
-                operators.push(c);
-                
-                // Unary operators (*, +, ?) act like operands after them for concatenation purposes
-                if (c == '*' || c == '+' || c == '?') {
-                    lastCharWasOperand = true; // Can be followed by implicit concat
-                } else {
-                    lastCharWasOperand = false; // Binary operators like | or & reset concat
-                }
-            } else if (c == '{') {
-                // Handle quantifiers like {2,}, {3}, {2,5}
-                QuantifierInfo quantifierInfo = parseQuantifier(infix, i);
-                if (quantifierInfo != null) {
-                    // A quantifier applies to the *previous* operand, so we don't add implicit concat before it
-                    // The operand should already be in the postfix string
-                    
-                    // Create a special quantifier operator that the NFA builder can understand
-                    // Format: Q<type><min><max> where type is E, A, M, R for exact, at-least, at-most, range
-                    StringBuilder quantifierOp = new StringBuilder();
-                    quantifierOp.append("Q");
-                    
-                    switch (quantifierInfo.type) {
-                        case EXACT:
-                            quantifierOp.append("E").append(quantifierInfo.min);
-                            break;
-                        case AT_LEAST:
-                            quantifierOp.append("A").append(quantifierInfo.min);
-                            break;
-                        case AT_MOST:
-                            quantifierOp.append("M").append(quantifierInfo.max);
-                            break;
-                        case RANGE:
-                            quantifierOp.append("R").append(quantifierInfo.min).append(",").append(quantifierInfo.max);
-                            break;
-                        default:
-                            throw new IllegalStateException("Unexpected quantifier type");
-                    }
-                    
-                    postfix.append(quantifierOp.toString());
-                    i += quantifierInfo.length - 1; // Adjust index
-                    lastCharWasOperand = true; // Quantifier acts like an operand for subsequent concatenation
-                } else {
-                    // Not a valid quantifier, treat as literal
-                    postfix.append(c);
-                    lastCharWasOperand = true;
-                }
-            } else {
-                // Literal character
-                postfix.append(c);
-                lastCharWasOperand = true;
+                continue;
             }
+
+            if (c == ')') {
+                popUntilOpenParen(operators, postfix);
+                lastCharWasOperand = true;
+                continue;
+            }
+
+            if (isOperator(c)) {
+                validatePipeUsage(infix, i, c);
+                popHigherOrEqualPrecedence(operators, postfix, c);
+                operators.push(c);
+                lastCharWasOperand = (c == '*' || c == '+' || c == '?');
+                continue;
+            }
+
+            if (c == '{') {
+                i = appendQuantifierOperator(infix, i, postfix);
+                lastCharWasOperand = true;
+                continue;
+            }
+
+            postfix.append(c);
+            lastCharWasOperand = true;
         }
-        
-        // Pop remaining operators
+
+        popRemainingOperators(operators, postfix);
+        return postfix.toString();
+    }
+
+    private static boolean shouldInsertConcat(boolean lastCharWasOperand, char c) {
+        return lastCharWasOperand && (isOperand(c) || c == '(' || c == '[');
+    }
+
+    private static void popHigherOrEqualPrecedence(Stack<Character> operators, StringBuilder postfix, char currentOp) {
+        while (!operators.isEmpty() && operators.peek() != '(' && getPrecedence(operators.peek()) >= getPrecedence(currentOp)) {
+            postfix.append(operators.pop());
+        }
+    }
+
+    private static int appendOperandToken(String infix, int i, StringBuilder postfix) {
+        char c = infix.charAt(i);
+        if (c == '\\' && i + 1 < infix.length()) {
+            postfix.append(c).append(infix.charAt(i + 1));
+            return i + 1;
+        }
+        postfix.append(c);
+        return i;
+    }
+
+    private static int appendCharacterClassToken(String infix, int i, StringBuilder postfix) {
+        StringBuilder charClass = new StringBuilder();
+        charClass.append('[');
+        i++;
+        boolean inEscape = false;
+        while (i < infix.length()) {
+            char cc = infix.charAt(i);
+            charClass.append(cc);
+            if (inEscape) {
+                inEscape = false;
+            } else if (cc == '\\' && cc != ']') {
+                inEscape = true;
+            } else if (cc == ']') {
+                break;
+            }
+            i++;
+        }
+        if (i >= infix.length()) {
+            throw new IllegalArgumentException("Unclosed character class");
+        }
+        postfix.append(charClass.toString());
+        return i;
+    }
+
+    private static void popUntilOpenParen(Stack<Character> operators, StringBuilder postfix) {
+        while (!operators.isEmpty() && operators.peek() != '(') {
+            postfix.append(operators.pop());
+        }
+        if (operators.isEmpty()) {
+            throw new IllegalArgumentException("Mismatched parentheses");
+        }
+        operators.pop();
+    }
+
+    private static void validatePipeUsage(String infix, int i, char c) {
+        if (c == '|' && (i == 0 || i == infix.length() - 1)) {
+            throw new IllegalArgumentException("Invalid use of | operator");
+        }
+    }
+
+    private static int appendQuantifierOperator(String infix, int i, StringBuilder postfix) {
+        QuantifierInfo quantifierInfo = parseQuantifier(infix, i);
+        if (quantifierInfo == null) {
+            postfix.append('{');
+            return i;
+        }
+        StringBuilder quantifierOp = new StringBuilder();
+        quantifierOp.append("Q");
+        switch (quantifierInfo.type) {
+            case EXACT:
+                quantifierOp.append("E").append(quantifierInfo.min);
+                break;
+            case AT_LEAST:
+                quantifierOp.append("A").append(quantifierInfo.min);
+                break;
+            case AT_MOST:
+                quantifierOp.append("M").append(quantifierInfo.max);
+                break;
+            case RANGE:
+                quantifierOp.append("R").append(quantifierInfo.min).append(",").append(quantifierInfo.max);
+                break;
+            default:
+                throw new IllegalStateException("Unexpected quantifier type");
+        }
+        postfix.append(quantifierOp.toString());
+        return i + quantifierInfo.length - 1;
+    }
+
+    private static void popRemainingOperators(Stack<Character> operators, StringBuilder postfix) {
         while (!operators.isEmpty()) {
             if (operators.peek() == '(') {
                 throw new IllegalArgumentException("Mismatched parentheses");
             }
             postfix.append(operators.pop());
         }
-        
-        return postfix.toString();
     }
     
     /**
@@ -675,113 +695,32 @@ public class RegexToDFAConverter {
         Stack<NFA> nfaStack = new Stack<NFA>();
         for (int i = 0; i < postfix.length(); i++) {
             char c = postfix.charAt(i);
-            
+
             if (isOperand(c)) {
-                // Handle escape sequences
-                if (c == '\\' && i + 1 < postfix.length()) {
-                    char nextChar = postfix.charAt(i + 1);
-                    char actualChar = getEscapedCharacter(nextChar);
-                    nfaStack.push(createCharacterNFA(actualChar));
-                    i++; // Skip the next character as it's part of the escape sequence
-                } else if (c == '.') {
-                    // Create NFA for wildcard (any character)
-                    nfaStack.push(createWildcardNFA());
-                } else {
-                    // Create NFA for single character
-                    nfaStack.push(createCharacterNFA(c));
-                }
-            } else if (c == '[') {
-                // Handle character class
-                StringBuilder charClass = new StringBuilder();
-                i++; // Skip '['
-                
-                while (i < postfix.length() && postfix.charAt(i) != ']') {
-                    charClass.append(postfix.charAt(i));
-                    i++;
-                }
-                
-                if (i >= postfix.length()) {
-                    throw new IllegalArgumentException("Unclosed character class");
-                }
-                
-                // Create NFA for character class
-                nfaStack.push(createCharacterClassNFA(charClass.toString()));
-            } else if (c == '*') {
-                if (nfaStack.isEmpty()) {
-                    throw new IllegalArgumentException("Invalid regex: * without operand");
-                }
-                NFA nfa = nfaStack.pop();
-                nfaStack.push(nfa.star());
-            } else if (c == '+') {
-                if (nfaStack.isEmpty()) {
-                    throw new IllegalArgumentException("Invalid regex: + without operand");
-                }
-                NFA nfa = nfaStack.pop();
-                nfaStack.push(nfa.plus());
-            } else if (c == '?') {
-                if (nfaStack.isEmpty()) {
-                    throw new IllegalArgumentException("Invalid regex: ? without operand");
-                }
-                NFA nfa = nfaStack.pop();
-                nfaStack.push(nfa.question());
-            } else if (c == '|') {
-                if (nfaStack.size() < 2) {
-                    throw new IllegalArgumentException("Invalid regex: | requires two operands");
-                }
-                NFA nfa2 = nfaStack.pop();
-                NFA nfa1 = nfaStack.pop();
-                nfaStack.push(nfa1.union(nfa2));
-            } else if (c == '&') {
-                if (nfaStack.size() < 2) {
-                    throw new IllegalArgumentException("Invalid regex: concatenation requires two operands");
-                }
-                NFA nfa2 = nfaStack.pop();
-                NFA nfa1 = nfaStack.pop();
-                nfaStack.push(nfa1.concatenate(nfa2));
-            } else if (c == 'Q') {
-                // Handle special quantifier operators
-                if (nfaStack.isEmpty()) {
-                    throw new IllegalArgumentException("Invalid regex: quantifier without operand");
-                }
-                
-                // Parse the quantifier operator
-                StringBuilder quantifierOp = new StringBuilder();
-                quantifierOp.append('Q');
-                i++; // Skip the Q
-                
-                while (i < postfix.length() && (Character.isLetterOrDigit(postfix.charAt(i)) || postfix.charAt(i) == ',')) {
-                    quantifierOp.append(postfix.charAt(i));
-                    i++;
-                }
-                i--; // Back up one position since the loop will increment
-                
-                String op = quantifierOp.toString();
-                NFA operand = nfaStack.pop();
-                
-                if (op.startsWith("QE")) {
-                    // Exact quantifier: QE<n>
-                    int n = Integer.parseInt(op.substring(2));
-                    nfaStack.push(createExactQuantifierNFA(operand, n));
-                } else if (op.startsWith("QA")) {
-                    // At least quantifier: QA<n>
-                    int n = Integer.parseInt(op.substring(2));
-                    nfaStack.push(createAtLeastQuantifierNFA(operand, n));
-                } else if (op.startsWith("QM")) {
-                    // At most quantifier: QM<m>
-                    int m = Integer.parseInt(op.substring(2));
-                    nfaStack.push(createAtMostQuantifierNFA(operand, m));
-                } else if (op.startsWith("QR")) {
-                    // Range quantifier: QR<n,m>
-                    String[] parts = op.substring(2).split(",");
-                    int n = Integer.parseInt(parts[0]);
-                    int m = Integer.parseInt(parts[1]);
-                    nfaStack.push(createRangeQuantifierNFA(operand, n, m));
-                } else {
-                    throw new IllegalArgumentException("Invalid quantifier operator: " + op);
-                }
+                i = handleOperandToken(postfix, i, nfaStack);
+                continue;
+            }
+
+            if (c == '[') {
+                i = handleCharacterClassToken(postfix, i, nfaStack);
+                continue;
+            }
+
+            if (c == '*' || c == '+' || c == '?') {
+                applyUnaryOperator(c, nfaStack);
+                continue;
+            }
+
+            if (c == '|' || c == '&') {
+                applyBinaryOperator(c, nfaStack);
+                continue;
+            }
+
+            if (c == 'Q') {
+                i = handleQuantifierOperator(postfix, i, nfaStack);
             }
         }
-        
+
         if (nfaStack.isEmpty()) {
             // For empty postfix, create an empty string NFA
             return createEmptyStringNFA();
@@ -795,6 +734,106 @@ public class RegexToDFAConverter {
         }
         
         return nfaStack.pop();
+    }
+
+    private static int handleOperandToken(String postfix, int i, Stack<NFA> nfaStack) {
+        char c = postfix.charAt(i);
+        if (c == '\\' && i + 1 < postfix.length()) {
+            char nextChar = postfix.charAt(i + 1);
+            char actualChar = getEscapedCharacter(nextChar);
+            nfaStack.push(createCharacterNFA(actualChar));
+            return i + 1;
+        }
+        if (c == '.') {
+            nfaStack.push(createWildcardNFA());
+        } else {
+            nfaStack.push(createCharacterNFA(c));
+        }
+        return i;
+    }
+
+    private static int handleCharacterClassToken(String postfix, int i, Stack<NFA> nfaStack) {
+        StringBuilder charClass = new StringBuilder();
+        i++;
+        while (i < postfix.length() && postfix.charAt(i) != ']') {
+            charClass.append(postfix.charAt(i));
+            i++;
+        }
+        if (i >= postfix.length()) {
+            throw new IllegalArgumentException("Unclosed character class");
+        }
+        nfaStack.push(createCharacterClassNFA(charClass.toString()));
+        return i;
+    }
+
+    private static void applyUnaryOperator(char op, Stack<NFA> nfaStack) {
+        if (nfaStack.isEmpty()) {
+            throw new IllegalArgumentException("Invalid regex: " + op + " without operand");
+        }
+        NFA nfa = nfaStack.pop();
+        switch (op) {
+            case '*':
+                nfaStack.push(nfa.star());
+                break;
+            case '+':
+                nfaStack.push(nfa.plus());
+                break;
+            case '?':
+                nfaStack.push(nfa.question());
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown unary operator: " + op);
+        }
+    }
+
+    private static void applyBinaryOperator(char op, Stack<NFA> nfaStack) {
+        if (nfaStack.size() < 2) {
+            String message = (op == '|') ? "Invalid regex: | requires two operands" : "Invalid regex: concatenation requires two operands";
+            throw new IllegalArgumentException(message);
+        }
+        NFA nfa2 = nfaStack.pop();
+        NFA nfa1 = nfaStack.pop();
+        if (op == '|') {
+            nfaStack.push(nfa1.union(nfa2));
+        } else {
+            nfaStack.push(nfa1.concatenate(nfa2));
+        }
+    }
+
+    private static int handleQuantifierOperator(String postfix, int i, Stack<NFA> nfaStack) {
+        if (nfaStack.isEmpty()) {
+            throw new IllegalArgumentException("Invalid regex: quantifier without operand");
+        }
+
+        StringBuilder quantifierOp = new StringBuilder();
+        quantifierOp.append('Q');
+        i++;
+        while (i < postfix.length() && (Character.isLetterOrDigit(postfix.charAt(i)) || postfix.charAt(i) == ',')) {
+            quantifierOp.append(postfix.charAt(i));
+            i++;
+        }
+        i--; // compensate for loop increment in caller
+
+        String op = quantifierOp.toString();
+        NFA operand = nfaStack.pop();
+        if (op.startsWith("QE")) {
+            int n = Integer.parseInt(op.substring(2));
+            nfaStack.push(createExactQuantifierNFA(operand, n));
+        } else if (op.startsWith("QA")) {
+            int n = Integer.parseInt(op.substring(2));
+            nfaStack.push(createAtLeastQuantifierNFA(operand, n));
+        } else if (op.startsWith("QM")) {
+            int m = Integer.parseInt(op.substring(2));
+            nfaStack.push(createAtMostQuantifierNFA(operand, m));
+        } else if (op.startsWith("QR")) {
+            String[] parts = op.substring(2).split(",");
+            int n = Integer.parseInt(parts[0]);
+            int m = Integer.parseInt(parts[1]);
+            nfaStack.push(createRangeQuantifierNFA(operand, n, m));
+        } else {
+            throw new IllegalArgumentException("Invalid quantifier operator: " + op);
+        }
+        return i;
     }
     
     /**
@@ -871,126 +910,149 @@ public class RegexToDFAConverter {
         Set<Character> characters = new HashSet<Character>();
         boolean negated = false;
         int i = 0;
-        
-        // Check for negation
+
         if (charClass.startsWith("^")) {
             negated = true;
             i = 1;
         }
-        
+
         while (i < charClass.length()) {
             char currentChar = charClass.charAt(i);
-            // Handle literal hyphen at the beginning or after a negation, or at the end.
-            // This condition checks if the hyphen is NOT part of a valid range.
-            if (currentChar == '-' && (i == 0 || i == charClass.length() - 1 || 
-                                       (i > 0 && charClass.charAt(i - 1) == '[') || (i > 0 && charClass.charAt(i - 1) == '^')) ) {
+
+            if (currentChar == '\\') {
+                i = handleEscapedInCharClass(charClass, i, characters);
+                continue;
+            }
+
+            if (isLiteralDashPosition(charClass, i)) {
                 characters.add('-');
                 i++;
                 continue;
             }
 
-            if (i + 2 < charClass.length() && charClass.charAt(i + 1) == '-') {
-                // Handle range (e.g., a-z or \x20-\x7E)
-                char start = charClass.charAt(i);
-                char end = charClass.charAt(i + 2);
-                
-                // Handle hex ranges
-                if (start == '\\' && i + 10 < charClass.length() && charClass.charAt(i + 1) == 'x' && 
-                    charClass.charAt(i + 5) == '-' && charClass.charAt(i + 6) == '\\' && charClass.charAt(i + 7) == 'x') {
-                    // Parse hex range like \x20-\x7E
-                    String startHex = charClass.substring(i + 2, i + 4);
-                    String endHex = charClass.substring(i + 8, i + 10);
-                    
-                    try {
-                        int startValue = Integer.parseInt(startHex, 16);
-                        int endValue = Integer.parseInt(endHex, 16);
-                        
-                        if (startValue > endValue) {
-                            throw new IllegalArgumentException("Invalid regex: invalid hex range \\x" + startHex + "-\\x" + endHex);
-                        }
-                        
-                        for (int val = startValue; val <= endValue; val++) {
-                            characters.add((char) val);
-                        }
-                        i += 10; // Skip \x20-\x7E
-                        continue;
-                    } catch (NumberFormatException e) {
-                        throw new IllegalArgumentException("Invalid regex: invalid hex range \\x" + startHex + "-\\x" + endHex);
-                    }
+            if (isPotentialRange(charClass, i)) {
+                if (tryConsumeHexRange(charClass, i, characters)) {
+                    i += 9;
+                    continue;
                 }
-                
-                if (start > end) {
-                    throw new IllegalArgumentException("Invalid character range: " + start + "-" + end);
-                }
-                
-                for (char c = start; c <= end; c++) {
-                    characters.add(c);
-                }
-                i += 3;
-            } else {
-                // Handle escape sequences in character class
-                char c = charClass.charAt(i);
-                if (c == '\\') {
-                    i++;
-                    if (i >= charClass.length()) {
-                        throw new IllegalArgumentException("Incomplete escape sequence");
-                    }
-                    c = charClass.charAt(i);
-                    
-                    // Handle hex characters like \x20
-                    if (c == 'x' && i + 2 < charClass.length()) {
-                        String hex = charClass.substring(i + 1, i + 3);
-                        try {
-                            int hexValue = Integer.parseInt(hex, 16);
-                            characters.add((char) hexValue);
-                            i += 3; // Skip \x20
-                            continue;
-                        } catch (NumberFormatException e) {
-                            throw new IllegalArgumentException("Invalid regex: invalid hex character \\x" + hex);
-                        }
-                    }
-                    
-                    switch (c) {
-                        case 's':
-                            characters.add(' '); // space
-                            characters.add('\t'); // tab
-                            characters.add('\n'); // newline
-                            characters.add('\r'); // carriage return
-                            break;
-                        case 't':
-                            characters.add('\t');
-                            break;
-                        case 'n':
-                            characters.add('\n');
-                            break;
-                        case 'r':
-                            characters.add('\r');
-                            break;
-                        case '\\':
-                            characters.add('\\');
-                            break;
-                        default:
-                            characters.add(c);
-                            break;
-                    }
-                } else {
-                    characters.add(c);
-                }
-                i++;
+                i = consumeSimpleRange(charClass, i, characters);
+                continue;
             }
+
+            characters.add(currentChar);
+            i++;
         }
-        
+
         if (negated) {
-            // Create set of all printable ASCII characters and remove the specified ones
             Set<Character> allChars = new HashSet<Character>();
-            for (char c = 32; c <= 126; c++) { // printable ASCII range
+            for (char c = 32; c <= 126; c++) {
                 allChars.add(c);
             }
             allChars.removeAll(characters);
             return allChars;
         }
-        
+
         return characters;
+    }
+
+    private static int handleEscapedInCharClass(String charClass, int i, Set<Character> characters) {
+        i++;
+        if (i >= charClass.length()) {
+            throw new IllegalArgumentException("Incomplete escape sequence");
+        }
+        char escapedChar = charClass.charAt(i);
+        if (escapedChar == 'x' && i + 2 < charClass.length()) {
+            String hex = charClass.substring(i + 1, i + 3);
+            try {
+                int hexValue = Integer.parseInt(hex, 16);
+                characters.add((char) hexValue);
+                return i + 3;
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid regex: invalid hex character \\x" + hex);
+            }
+        }
+        if (escapedChar == '-') {
+            characters.add('-');
+            return i + 1;
+        }
+        switch (escapedChar) {
+            case 's':
+                addWhitespaceCharacters(characters);
+                break;
+            case 't':
+                characters.add('\t');
+                break;
+            case 'n':
+                characters.add('\n');
+                break;
+            case 'r':
+                characters.add('\r');
+                break;
+            case '\\':
+                characters.add('\\');
+                break;
+            default:
+                characters.add(escapedChar);
+                break;
+        }
+        return i + 1;
+    }
+
+    private static void addWhitespaceCharacters(Set<Character> characters) {
+        characters.add(' ');
+        characters.add('\t');
+        characters.add('\n');
+        characters.add('\r');
+    }
+
+    private static boolean isLiteralDashPosition(String charClass, int i) {
+        return charClass.charAt(i) == '-' && (i == 0 || i == charClass.length() - 1 ||
+                (i > 0 && charClass.charAt(i - 1) == '[') || (i > 0 && charClass.charAt(i - 1) == '^'));
+    }
+
+    private static boolean isPotentialRange(String charClass, int i) {
+        return i + 2 < charClass.length() && charClass.charAt(i + 1) == '-';
+    }
+
+    private static boolean tryConsumeHexRange(String charClass, int i, Set<Character> characters) {
+        char currentChar = charClass.charAt(i);
+        if (currentChar == '\\' && i + 4 < charClass.length()) {
+            String startHex = charClass.substring(i + 2, i + 4);
+            boolean startHexValid = startHex.matches("[0-9a-fA-F]{2}");
+            boolean hasDashAndSecondHex = (i + 9 < charClass.length() && charClass.charAt(i + 4) == '-' &&
+                    charClass.charAt(i + 5) == '\\' && charClass.charAt(i + 6) == 'x' &&
+                    Character.toString(charClass.charAt(i + 7)).matches("[0-9a-fA-F]") &&
+                    Character.toString(charClass.charAt(i + 8)).matches("[0-9a-fA-F]"));
+            if (startHexValid && hasDashAndSecondHex) {
+                String endHex = charClass.substring(i + 7, i + 9);
+                try {
+                    int startValue = Integer.parseInt(startHex, 16);
+                    int endValue = Integer.parseInt(endHex, 16);
+                    if (startValue > endValue) {
+                        throw new IllegalArgumentException("Invalid regex: invalid hex range \\x" + startHex + "-\\x" + endHex);
+                    }
+                    for (int val = startValue; val <= endValue; val++) {
+                        characters.add((char) val);
+                    }
+                    return true;
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException("Invalid regex: invalid hex range \\x" + startHex + "-\\x" + endHex);
+                }
+            }
+        }
+        return false;
+    }
+
+    private static int consumeSimpleRange(String charClass, int i, Set<Character> characters) {
+        char start = charClass.charAt(i);
+        char end = charClass.charAt(i + 2);
+        if (start > end) {
+            throw new IllegalArgumentException("Invalid character range: " + start + "-" + end);
+        }
+        for (char c = start; c <= end; c++) {
+            characters.add(c);
+        }
+        return i + 3;
     }
     
     /**
@@ -1086,12 +1148,21 @@ public class RegexToDFAConverter {
             return operand.question();
         }
         
-        // Create union of 0, 1, 2, ..., m occurrences
-        NFA result = createEmptyStringNFA(); // 0 occurrences
+        // For small values of m, use union approach
+        if (m <= 5) {
+            NFA result = createEmptyStringNFA(); // 0 occurrences
+            for (int i = 1; i <= m; i++) {
+                NFA current = createExactQuantifierNFA(operand, i);
+                result = result.union(current);
+            }
+            return result;
+        }
         
-        for (int i = 1; i <= m; i++) {
-            NFA current = createExactQuantifierNFA(operand, i);
-            result = result.union(current);
+        // For larger values, use a more efficient approach
+        // Create: (operand?)^m but limit the complexity
+        NFA result = createEmptyStringNFA();
+        for (int i = 0; i < Math.min(m, 10); i++) { // Limit to 10 to avoid complexity
+            result = result.concatenate(operand.question());
         }
         return result;
     }
@@ -1110,14 +1181,20 @@ public class RegexToDFAConverter {
             return createAtLeastQuantifierNFA(operand, n);
         }
         
-        // Create union of n, n+1, ..., m occurrences
-        NFA result = createExactQuantifierNFA(operand, n);
-        
-        for (int i = n + 1; i <= m; i++) {
-            NFA current = createExactQuantifierNFA(operand, i);
-            result = result.union(current);
+        // For small ranges, use union approach
+        if (m - n <= 5) {
+            NFA result = createExactQuantifierNFA(operand, n);
+            for (int i = n + 1; i <= m; i++) {
+                NFA current = createExactQuantifierNFA(operand, i);
+                result = result.union(current);
+            }
+            return result;
         }
-        return result;
+        
+        // For larger ranges, use concatenation approach
+        NFA exactN = createExactQuantifierNFA(operand, n);
+        NFA additional = createAtMostQuantifierNFA(operand, m - n);
+        return exactN.concatenate(additional);
     }
 
     /**
@@ -1135,7 +1212,7 @@ public class RegexToDFAConverter {
         
         // Check if it's a special character that's not an operator
         // Note: '.' is a wildcard operand, not an operator
-        if ("()[]{}+?|^$&".indexOf(c) != -1) {
+        if ("()[]{}+?*|^$&".indexOf(c) != -1) {
             return false;
         }
         
