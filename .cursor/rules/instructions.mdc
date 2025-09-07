@@ -9,13 +9,14 @@ For each Maven test, run tests one by one in cmd.exe terminal.
 Fix failures without rigidly matching test code.
 After each fix, run `git commit` to save changes to git history.
 Use cmd.exe for running all commands and open Cursor terminal.
-Do not interrupt commands while they are running.
+Do not interrupt commands while they are running. Dont send Ctrl+C
+or kill the command.
 
 Steps:
 - Run Maven tests one by one in cmd.exe. After running each test:
   1. Analyze errors without forcing rigid code changes just to pass tests.
   2. Apply logical fixes respecting code quality.
-  3. After applying fixes, run `git add .` and then `git commit -m "Fix Maven test errors for <test_name>"`.
+  3. After applying fixes, run git to save changes
   4. Continue to next test without interrupting or stopping any running commands prematurely.
 - Use cmd.exe console for commands.
 - Use Cursor terminal for convenience.

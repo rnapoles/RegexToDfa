@@ -364,4 +364,70 @@ public class NFA {
         }
         return false;
     }
+    
+    // Getters for lexer generation
+    
+    public Set<String> getStates() {
+        return new HashSet<>(states);
+    }
+    
+    public Set<Character> getAlphabet() {
+        return new HashSet<>(alphabet);
+    }
+    
+    public Map<String, Map<Character, Set<String>>> getTransitions() {
+        Map<String, Map<Character, Set<String>>> result = new HashMap<>();
+        for (Map.Entry<String, Map<Character, Set<String>>> entry : transitions.entrySet()) {
+            Map<Character, Set<String>> stateTransitions = new HashMap<>();
+            for (Map.Entry<Character, Set<String>> symbolEntry : entry.getValue().entrySet()) {
+                stateTransitions.put(symbolEntry.getKey(), new HashSet<>(symbolEntry.getValue()));
+            }
+            result.put(entry.getKey(), stateTransitions);
+        }
+        return result;
+    }
+    
+    public Map<String, Set<String>> getEpsilonTransitions() {
+        Map<String, Set<String>> result = new HashMap<>();
+        for (Map.Entry<String, Set<String>> entry : epsilonTransitions.entrySet()) {
+            result.put(entry.getKey(), new HashSet<>(entry.getValue()));
+        }
+        return result;
+    }
+    
+    public String getStartState() {
+        return startState;
+    }
+    
+    public Set<String> getAcceptingStates() {
+        return new HashSet<>(acceptingStates);
+    }
+    
+    /**
+     * Generates a Java lexer class from this NFA.
+     * 
+     * @param className the name of the generated lexer class
+     * @param packageName the package name for the generated class
+     * @return the generated Java source code
+     * @throws IOException if template processing fails
+     */
+    public String generateLexer(String className, String packageName) throws IOException {
+        LexerGenerator generator = new LexerGenerator();
+        return generator.generateLexerFromNFA(this, className, packageName);
+    }
+    
+    /**
+     * Generates a Java lexer class from this NFA with custom token types.
+     * 
+     * @param className the name of the generated lexer class
+     * @param packageName the package name for the generated class
+     * @param tokenTypes map of accepting states to token type names
+     * @return the generated Java source code
+     * @throws IOException if template processing fails
+     */
+    public String generateLexer(String className, String packageName, 
+                               Map<String, String> tokenTypes) throws IOException {
+        LexerGenerator generator = new LexerGenerator();
+        return generator.generateLexerFromNFA(this, className, packageName, tokenTypes);
+    }
 }

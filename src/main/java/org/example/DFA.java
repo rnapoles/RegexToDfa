@@ -408,4 +408,58 @@ public class DFA {
         
         return minimizedDFA;
     }
+    
+    // Getters for lexer generation
+    
+    public Set<String> getStates() {
+        return new HashSet<>(states);
+    }
+    
+    public Set<Character> getAlphabet() {
+        return new HashSet<>(alphabet);
+    }
+    
+    public Map<String, Map<Character, String>> getTransitions() {
+        Map<String, Map<Character, String>> result = new HashMap<>();
+        for (Map.Entry<String, Map<Character, String>> entry : transitions.entrySet()) {
+            result.put(entry.getKey(), new HashMap<>(entry.getValue()));
+        }
+        return result;
+    }
+    
+    public String getStartState() {
+        return startState;
+    }
+    
+    public Set<String> getAcceptingStates() {
+        return new HashSet<>(acceptingStates);
+    }
+    
+    /**
+     * Generates a Java lexer class from this DFA.
+     * 
+     * @param className the name of the generated lexer class
+     * @param packageName the package name for the generated class
+     * @return the generated Java source code
+     * @throws IOException if template processing fails
+     */
+    public String generateLexer(String className, String packageName) throws IOException {
+        LexerGenerator generator = new LexerGenerator();
+        return generator.generateLexerFromDFA(this, className, packageName);
+    }
+    
+    /**
+     * Generates a Java lexer class from this DFA with custom token types.
+     * 
+     * @param className the name of the generated lexer class
+     * @param packageName the package name for the generated class
+     * @param tokenTypes map of accepting states to token type names
+     * @return the generated Java source code
+     * @throws IOException if template processing fails
+     */
+    public String generateLexer(String className, String packageName, 
+                               Map<String, String> tokenTypes) throws IOException {
+        LexerGenerator generator = new LexerGenerator();
+        return generator.generateLexerFromDFA(this, className, packageName, tokenTypes);
+    }
 }
