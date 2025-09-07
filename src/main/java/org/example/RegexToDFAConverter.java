@@ -258,8 +258,8 @@ public class RegexToDFAConverter {
                     char next = i + 1 < regex.length() ? regex.charAt(i + 1) : '\0';
                     
                     if (next == ']') {
-                        // Invalid range end - throw exception
-                        throw new IllegalArgumentException("Invalid regex");
+                        // '-' at the end of a character class is a literal
+                        result.append('-');
                     } else if (next <= prev) {
                         // Check if this is a hex range
                         if (i >= 3 && regex.substring(i - 3, i).matches("\\\\x[0-9a-fA-F]{2}") &&
@@ -903,6 +903,16 @@ public class RegexToDFAConverter {
         }
         
         while (i < charClass.length()) {
+            char currentChar = charClass.charAt(i);
+            // Handle literal hyphen at the beginning or after a negation, or at the end.
+            // This condition checks if the hyphen is NOT part of a valid range.
+            if (currentChar == '-' && (i == 0 || i == charClass.length() - 1 || 
+                                       (i > 0 && charClass.charAt(i - 1) == '[') || (i > 0 && charClass.charAt(i - 1) == '^')) ) {
+                characters.add('-');
+                i++;
+                continue;
+            }
+
             if (i + 2 < charClass.length() && charClass.charAt(i + 1) == '-') {
                 // Handle range (e.g., a-z or \x20-\x7E)
                 char start = charClass.charAt(i);
@@ -1149,7 +1159,7 @@ public class RegexToDFAConverter {
         
         // Check if it's a special character that's not an operator
         // Note: '.' is a wildcard operand, not an operator
-        if ("()[]{}*+?|^$&".indexOf(c) != -1) {
+        if ("()[]{*}.*+?|^$&".indexOf(c) != -1) {
             return false;
         }
         
