@@ -442,6 +442,12 @@ public class Main {
             System.out.println("   Generated regex lexer code length: " + regexLexerCode.length() + " characters");
             System.out.println("   Contains class definition: " + regexLexerCode.contains("class NumberLexer"));
             
+            // Save the generated code to a file
+            FileUtils.file_put_contents("dfaLexerCode.java", dfaLexerCode);
+            FileUtils.file_put_contents("nfaLexerCode.java", nfaLexerCode);
+            FileUtils.file_put_contents("customLexerCode.java", customLexerCode);
+            FileUtils.file_put_contents("regexLexerCode.java", regexLexerCode);
+            
             // Test 5: Show sample generated code structure
             System.out.println("\n5. Sample generated lexer code structure:");
             String[] lines = dfaLexerCode.split("\n");
