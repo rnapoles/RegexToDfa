@@ -31,6 +31,31 @@ public class {{ className }} {
     // States
     private final Set<String> states;
     
+    // State-transition table as 2D array
+    // Rows represent states, columns represent symbols
+    private static final String[][] TRANSITION_TABLE = {
+{% for fromState in sortedStates %}
+  { {% for symbol in sortedAlphabet %}{% set nextState = null %}{% for transition in flattenedTransitions %}{% if transition.fromState == fromState and transition.symbol == symbol %}{% set nextState = transition.toState %}{% endif %}{% endfor %}{% if nextState %}"{{ nextState }}"{% else %}null{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}}
+{% if not loop.last %},{% endif %}{% endfor %}
+
+    };
+    
+    // State index mapping for efficient lookup
+    private static final Map<String, Integer> STATE_INDEX = new HashMap<String, Integer>();
+    static {
+{% for state in sortedStates %}
+        STATE_INDEX.put("{{ state }}", {{ loop.index }});
+{% endfor %}
+    }
+    
+    // Symbol index mapping for efficient lookup
+    private static final Map<Character, Integer> SYMBOL_INDEX = new HashMap<Character, Integer>();
+    static {
+{% for symbol in sortedAlphabet %}
+        SYMBOL_INDEX.put('{{ symbol }}', {{ loop.index }});
+{% endfor %}
+    }
+    
     public {{ className }}(String input) {
         this.states = new HashSet<String>();
         this.input = input;
@@ -105,23 +130,15 @@ public class {{ className }} {
     }
     
     private String getNextState(String currentState, char symbol) {
-        // Generated transition logic using actual DFA transitions
-        // More efficient implementation using switch statements
-{% for fromState in states %}
-        if ({{ fromState }}.equals(currentState)) {
-            switch (symbol) {
-{% for transition in flattenedTransitions %}
-{% if transition.fromState == fromState %}
-                case '{{ transition.symbol }}':
-                    return {{ transition.toState }};
-{% endif %}
-{% endfor %}
-                default:
-                    return null;
-            }
+        // Use the transition table array for efficient lookup
+        Integer stateIndex = STATE_INDEX.get(currentState);
+        Integer symbolIndex = SYMBOL_INDEX.get(symbol);
+        
+        if (stateIndex == null || symbolIndex == null) {
+            return null;
         }
-{% endfor %}
-        return null;
+        
+        return TRANSITION_TABLE[stateIndex][symbolIndex];
     }
     
     private Set<String> getStates() {
@@ -151,6 +168,42 @@ public class {{ className }} {
 {% endfor %}
 
         return ERROR;
+    }
+    
+    /**
+     * Returns a string representation of the transition table for debugging.
+     * 
+     * @return formatted string of the transition table
+     */
+    public String getTransitionTableString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Transition Table:\n");
+        sb.append("States: ");
+        sb.append(String.join(", ", STATE_INDEX.keySet()));
+        sb.append("\nSymbols: ");
+        sb.append(SYMBOL_INDEX.keySet().toString());
+        sb.append("\n\n");
+        
+        // Header row
+        sb.append(String.format("%-10s", "State"));
+        for (Character symbol : SYMBOL_INDEX.keySet()) {
+            sb.append(String.format("%-8s", symbol.toString()));
+        }
+        sb.append("\n");
+        
+        // Data rows
+        for (String state : STATE_INDEX.keySet()) {
+            sb.append(String.format("%-10s", state));
+            Integer stateIndex = STATE_INDEX.get(state);
+            for (Character symbol : SYMBOL_INDEX.keySet()) {
+                Integer symbolIndex = SYMBOL_INDEX.get(symbol);
+                String nextState = TRANSITION_TABLE[stateIndex][symbolIndex];
+                sb.append(String.format("%-8s", nextState != null ? nextState : "-"));
+            }
+            sb.append("\n");
+        }
+        
+        return sb.toString();
     }
 
 }
