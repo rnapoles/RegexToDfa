@@ -406,7 +406,7 @@ public class Main {
             dfa.addTransition("q1", 'b', "q2");
             dfa = dfa.setStartState("q0");
             
-            String dfaLexerCode = dfa.generateLexer("AbLexer", "com.example");
+            String dfaLexerCode = CodeGen.generateLexer(dfa, "AbLexer", "com.example");
             System.out.println("   Generated DFA lexer code length: " + dfaLexerCode.length() + " characters");
             System.out.println("   Contains class definition: " + dfaLexerCode.contains("class AbLexer"));
             System.out.println("   Contains token types: " + dfaLexerCode.contains("TOKEN_Q2"));
@@ -421,7 +421,7 @@ public class Main {
             nfa.addEpsilonTransition("q1", "q0");
             nfa.setStartState("q0");
             
-            String nfaLexerCode = nfa.generateLexer("StarLexer", "com.example");
+            String nfaLexerCode = CodeGen.generateLexer(nfa, "StarLexer", "com.example");
             System.out.println("   Generated NFA lexer code length: " + nfaLexerCode.length() + " characters");
             System.out.println("   Contains class definition: " + nfaLexerCode.contains("class StarLexer"));
             System.out.println("   Contains epsilon closure: " + nfaLexerCode.contains("getEpsilonClosure"));
@@ -431,23 +431,18 @@ public class Main {
             Map<String, String> tokenTypes = new HashMap<>();
             tokenTypes.put("q2", "IDENTIFIER");
             
-            String customLexerCode = dfa.generateLexer("CustomLexer", "com.example", tokenTypes);
+            String customLexerCode = CodeGen.generateLexer(dfa, "CustomLexer", "com.example", tokenTypes);
             System.out.println("   Contains custom token type: " + customLexerCode.contains("IDENTIFIER"));
             System.out.println("   Contains token constant: " + customLexerCode.contains("public static final String IDENTIFIER"));
             
             // Test 4: Generate lexer from regex
             System.out.println("\n4. Generating lexer from regex pattern '[0-9]+':");
             DFA regexDfa = RegexToDFAConverter.convert("[0-9]+");
-            String regexLexerCode = regexDfa.generateLexer("NumberLexer", "com.example");
+            String regexLexerCode = CodeGen.generateLexer(regexDfa, "NumberLexer", "com.example");
             System.out.println("   Generated regex lexer code length: " + regexLexerCode.length() + " characters");
             System.out.println("   Contains class definition: " + regexLexerCode.contains("class NumberLexer"));
             
-            // Save the generated code to a file
-            FileUtils.file_put_contents("dfaLexerCode.java", dfaLexerCode);
-            FileUtils.file_put_contents("nfaLexerCode.java", nfaLexerCode);
-            FileUtils.file_put_contents("customLexerCode.java", customLexerCode);
-            FileUtils.file_put_contents("regexLexerCode.java", regexLexerCode);
-            
+           
             // Test 5: Show sample generated code structure
             System.out.println("\n5. Sample generated lexer code structure:");
             String[] lines = dfaLexerCode.split("\n");
@@ -461,9 +456,33 @@ public class Main {
                     break;
                 }
             }
+
+            // Test 6: Generate main class for testing
+            System.out.println("\n6. Generating main class for testing:");
+            String mainClassCode = CodeGen.generateLexerMainClass(dfa.getAcceptingStates(), "AbLexer", "AbLexerMain", "com.example");
+            System.out.println("   Generated main class code length: " + mainClassCode.length() + " characters");
+            System.out.println("   Contains main method: " + mainClassCode.contains("public static void main"));
+            System.out.println("   Contains interactive mode: " + mainClassCode.contains("runInteractiveMode"));
+            System.out.println("   Contains usage instructions: " + mainClassCode.contains("printUsage"));
+            
+            // Test 7: Generate main class with custom token types
+            System.out.println("\n7. Generating main class with custom token types:");
+            Map<String, String> customTokenTypes = new HashMap<>();
+            customTokenTypes.put("q2", "AB_PATTERN");
+            String customMainCode = CodeGen.generateLexerMainClass(dfa.getAcceptingStates(), "AbLexer", "CustomAbMain", "com.example", customTokenTypes);
+            System.out.println("   Contains custom token type: " + customMainCode.contains("AB_PATTERN"));
             
             System.out.println("\n✓ All lexer generation tests passed!");
             
+            // Save the generated code to a file
+            FileUtils.file_put_contents("dfaLexerCode.java", dfaLexerCode);
+            FileUtils.file_put_contents("nfaLexerCode.java", nfaLexerCode);
+            FileUtils.file_put_contents("customLexerCode.java", customLexerCode);
+            FileUtils.file_put_contents("regexLexerCode.java", regexLexerCode);
+            FileUtils.file_put_contents("mainClassCode1.java", mainClassCode);
+            FileUtils.file_put_contents("mainClassCode2.java", customMainCode);
+
+
         } catch (Exception e) {
             System.out.println("✗ Lexer generation test failed: " + e.getMessage());
             e.printStackTrace();

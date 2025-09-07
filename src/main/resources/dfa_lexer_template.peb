@@ -9,6 +9,7 @@ import java.util.*;
 public class {{ className }} {
     
     // Token types
+    public static final String q0 = "{{ startState }}";
     {% for state in acceptingStates %}
     public static final String {{ tokenTypes[state] }} = "{{ tokenTypes[state] }}";
     {% endfor %}
@@ -17,15 +18,24 @@ public class {{ className }} {
     
     // Current state
     private String currentState;
-    private String input;
+    private final String input;
     private int position;
     private int startPosition;
     
+    // States
+    private final Set<String> states;
+    
     public {{ className }}(String input) {
+        this.states = new HashSet<String>();
         this.input = input;
         this.position = 0;
         this.startPosition = 0;
-        this.currentState = "{{ startState }}";
+        this.currentState = q0;
+        
+    {% for fromState in states %}
+      this.states.add("{{ fromState }}");
+    {% endfor %}
+
     }
     
     /**
@@ -38,7 +48,7 @@ public class {{ className }} {
         }
         
         startPosition = position;
-        currentState = "{{ startState }}";
+        currentState = q0;
         StringBuilder tokenValue = new StringBuilder();
         
         while (position < input.length()) {
@@ -77,6 +87,12 @@ public class {{ className }} {
         Token token;
         
         while ((token = nextToken()) != null && !token.getType().equals(EOF)) {
+
+            if (token.getType().equals(ERROR)) {
+                tokens.add(token);
+                break;
+            }
+
             tokens.add(token);
         }
         
@@ -100,13 +116,22 @@ public class {{ className }} {
         return null;
     }
     
+    private Set<String> getStates() {
+        return this.states;
+    }
+
     private boolean isAcceptingState(String state) {
-        {% for acceptingState in acceptingStates %}
-        if ("{{ acceptingState }}".equals(state)) {
-            return true;
-        }
-        {% endfor %}
-        return false;
+
+        {% if acceptingStates.size() == 1 %}
+          return "{{ acceptingStates | first }}".equals(state))
+        {% else %}
+          {% for acceptingState in acceptingStates %}
+          if ("{{ acceptingState }}".equals(state)) {
+              return true;
+          }
+          {% endfor %}
+          return false;
+        {% endif %}
     }
     
     private String getTokenType(String state) {

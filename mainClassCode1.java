@@ -1,0 +1,142 @@
+package com.example;
+
+import java.util.*;
+
+/**
+ * Generated main class for testing and running the AbLexer lexer.
+ * This class provides a command-line interface for tokenizing input text.
+ */
+public class AbLexerMain {
+    
+    public static void main(String[] args) {
+        if (args.length == 0) {
+            printUsage();
+            return;
+        }
+        
+        String input = args[0];
+        AbLexer lexer = new AbLexer(input);
+        
+        System.out.println("=== AbLexer Tokenization Results ===");
+        System.out.println("Input: \"" + input + "\"");
+        System.out.println();
+        
+        try {
+            // Get all tokens
+            List<AbLexer.Token> tokens = lexer.getAllTokens();
+            
+            System.out.println("Tokens found:");
+            System.out.println("------------");
+            
+            for (AbLexer.Token token : tokens) {
+                System.out.printf("Type: %-15s | Value: \"%s\" | Position: %d%n", 
+                    token.getType(), 
+                    escapeString(token.getValue()), 
+                    token.getPosition());
+            }
+            
+            System.out.println();
+            System.out.println("Total tokens: " + tokens.size());
+            
+            // Check for errors
+            long errorCount = tokens.stream()
+                .filter(token -> "ERROR".equals(token.getType()))
+                .count();
+            
+            if (errorCount > 0) {
+                System.out.println("WARNING: " + errorCount + " error token(s) found!");
+            } else {
+                System.out.println("✓ No errors found - all input was successfully tokenized!");
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error during tokenization: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    private static void printUsage() {
+        System.out.println("Usage: java AbLexerMain \"<input_string>\"");
+        System.out.println();
+        System.out.println("Examples:");
+        System.out.println("  java AbLexerMain \"hello world\"");
+        System.out.println("  java AbLexerMain \"123 456\"");
+        System.out.println("  java AbLexerMain \"a b c\"");
+        System.out.println();
+        System.out.println("This lexer recognizes the following patterns:");
+                System.out.println("  - TOKEN_Q2: q2");
+            }
+    
+    private static String escapeString(String value) {
+        if (value == null) return "null";
+        
+        StringBuilder sb = new StringBuilder();
+        for (char c : value.toCharArray()) {
+            switch (c) {
+                case '\n': sb.append("\\n"); break;
+                case '\r': sb.append("\\r"); break;
+                case '\t': sb.append("\\t"); break;
+                case '\\': sb.append("\\\\"); break;
+                case '"': sb.append("\\\""); break;
+                default: sb.append(c); break;
+            }
+        }
+        return sb.toString();
+    }
+    
+    /**
+     * Interactive mode for testing the lexer with multiple inputs.
+     */
+    public static void runInteractiveMode() {
+        Scanner scanner = new Scanner(System.in);
+        
+        System.out.println("=== AbLexer Interactive Mode ===");
+        System.out.println("Enter input strings to tokenize (type 'quit' to exit):");
+        System.out.println();
+        
+        while (true) {
+            System.out.print("Input> ");
+            String input = scanner.nextLine().trim();
+            
+            if ("quit".equalsIgnoreCase(input) || "exit".equalsIgnoreCase(input)) {
+                break;
+            }
+            
+            if (input.isEmpty()) {
+                continue;
+            }
+            
+            AbLexer lexer = new AbLexer(input);
+            
+            try {
+                List<AbLexer.Token> tokens = lexer.getAllTokens();
+                
+                System.out.println("Tokens:");
+                for (AbLexer.Token token : tokens) {
+                    System.out.printf("  %-15s \"%s\" (pos: %d)%n", 
+                        token.getType(), 
+                        escapeString(token.getValue()), 
+                        token.getPosition());
+                }
+                
+                long errorCount = tokens.stream()
+                    .filter(token -> "ERROR".equals(token.getType()))
+                    .count();
+                
+                if (errorCount > 0) {
+                    System.out.println("  ⚠ " + errorCount + " error(s)");
+                } else {
+                    System.out.println("  ✓ " + tokens.size() + " token(s) - no errors");
+                }
+                
+            } catch (Exception e) {
+                System.out.println("  ✗ Error: " + e.getMessage());
+            }
+            
+            System.out.println();
+        }
+        
+        scanner.close();
+        System.out.println("Goodbye!");
+    }
+}

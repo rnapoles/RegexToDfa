@@ -1,6 +1,5 @@
 package org.example;
 
-import java.io.IOException;
 import java.util.*;
 
 /**
@@ -439,32 +438,5 @@ public class NFA {
     public Set<String> getAcceptingStates() {
         return new HashSet<>(acceptingStates);
     }
-    
-    /**
-     * Generates a Java lexer class from this NFA.
-     * 
-     * @param className the name of the generated lexer class
-     * @param packageName the package name for the generated class
-     * @return the generated Java source code
-     * @throws IOException if template processing fails
-     */
-    public String generateLexer(String className, String packageName) throws IOException {
-        LexerGenerator generator = new LexerGenerator();
-        return generator.generateLexerFromNFA(this, className, packageName);
-    }
-    
-    /**
-     * Generates a Java lexer class from this NFA with custom token types.
-     * 
-     * @param className the name of the generated lexer class
-     * @param packageName the package name for the generated class
-     * @param tokenTypes map of accepting states to token type names
-     * @return the generated Java source code
-     * @throws IOException if template processing fails
-     */
-    public String generateLexer(String className, String packageName, 
-                               Map<String, String> tokenTypes) throws IOException {
-        LexerGenerator generator = new LexerGenerator();
-        return generator.generateLexerFromNFA(this, className, packageName, tokenTypes);
-    }
+
 }

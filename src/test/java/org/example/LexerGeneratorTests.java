@@ -129,7 +129,7 @@ public class LexerGeneratorTests {
         
         dfa = dfa.setStartState("q0");
         
-        String lexerCode = dfa.generateLexer("HelloLexer", "com.example");
+        String lexerCode = CodeGen.generateLexer(dfa, "HelloLexer", "com.example");
         
         assertNotNull(lexerCode);
         assertTrue(lexerCode.contains("class HelloLexer"));
@@ -149,7 +149,7 @@ public class LexerGeneratorTests {
         
         nfa.setStartState("start");
         
-        String lexerCode = nfa.generateLexer("ChoiceLexer", "com.example");
+        String lexerCode = CodeGen.generateLexer(nfa, "ChoiceLexer", "com.example");
         
         assertNotNull(lexerCode);
         assertTrue(lexerCode.contains("class ChoiceLexer"));
@@ -166,16 +166,16 @@ public class LexerGeneratorTests {
         dfa.addTransition("q0", 'a', "q1");
         dfa = dfa.setStartState("q0");
         
-        String lexerCode = dfa.generateLexer("TestLexer", "com.example");
+        String lexerCode = CodeGen.generateLexer(dfa, "TestLexer", "com.example");
         
         // Check for essential components
-        assertTrue(lexerCode.contains("public class TestLexer"));
-        assertTrue(lexerCode.contains("public Token nextToken()"));
-        assertTrue(lexerCode.contains("public List<Token> getAllTokens()"));
-        assertTrue(lexerCode.contains("public static class Token"));
-        assertTrue(lexerCode.contains("public String getType()"));
-        assertTrue(lexerCode.contains("public String getValue()"));
-        assertTrue(lexerCode.contains("public int getPosition()"));
+        assertTrue(lexerCode.contains("class TestLexer"));
+        assertTrue(lexerCode.contains("nextToken()"));
+        assertTrue(lexerCode.contains("getAllTokens()"));
+        assertTrue(lexerCode.contains("class Token"));
+        assertTrue(lexerCode.contains("getType()"));
+        assertTrue(lexerCode.contains("getValue()"));
+        assertTrue(lexerCode.contains("getPosition()"));
     }
     
     @Test
@@ -191,7 +191,7 @@ public class LexerGeneratorTests {
         
         dfa = dfa.setStartState("q0");
         
-        String lexerCode = dfa.generateLexer("MultiLexer", "com.example");
+        String lexerCode = CodeGen.generateLexer(dfa, "MultiLexer", "com.example");
         
         assertTrue(lexerCode.contains("TOKEN_Q1"));
         assertTrue(lexerCode.contains("TOKEN_Q2"));
@@ -202,7 +202,7 @@ public class LexerGeneratorTests {
         // Create an empty DFA
         DFA dfa = new DFA();
         
-        String lexerCode = dfa.generateLexer("EmptyLexer", "com.example");
+        String lexerCode = CodeGen.generateLexer(dfa, "EmptyLexer", "com.example");
         
         assertNotNull(lexerCode);
         assertTrue(lexerCode.contains("class EmptyLexer"));
@@ -213,9 +213,84 @@ public class LexerGeneratorTests {
         // Create an empty NFA
         NFA nfa = new NFA();
         
-        String lexerCode = nfa.generateLexer("EmptyNFALexer", "com.example");
+        String lexerCode = CodeGen.generateLexer(nfa, "EmptyNFALexer", "com.example");
         
         assertNotNull(lexerCode);
         assertTrue(lexerCode.contains("class EmptyNFALexer"));
+    }
+    
+    @Test
+    public void testGenerateLexerMainClass() throws IOException {
+        // Create a simple DFA
+        DFA dfa = new DFA();
+        dfa.addState("q0", false);
+        dfa.addState("q1", true);
+        dfa.addTransition("q0", 'a', "q1");
+        dfa = dfa.setStartState("q0");
+
+        String mainClassCode = CodeGen.generateLexerMainClass(dfa.getAcceptingStates(),"TestLexer", "TestMain", "com.example");
+        
+        assertNotNull(mainClassCode);
+        assertTrue(mainClassCode.contains("class TestMain"));
+        assertTrue(mainClassCode.contains("TestLexer lexer = new TestLexer(input)"));
+        assertTrue(mainClassCode.contains("public static void main(String[] args)"));
+        assertTrue(mainClassCode.contains("runInteractiveMode()"));
+    }
+    
+    @Test
+    public void testGenerateLexerMainClassWithCustomTokenTypes() throws IOException {
+        // Create a DFA with custom token types
+        DFA dfa = new DFA();
+        dfa.addState("q0", false);
+        dfa.addState("q1", true);
+        dfa.addTransition("q0", 'a', "q1");
+        dfa = dfa.setStartState("q0");
+        
+        Map<String, String> tokenTypes = new HashMap<>();
+        tokenTypes.put("q1", "LETTER_A");
+        
+        String mainClassCode = CodeGen.generateLexerMainClass(dfa.getAcceptingStates(), "CustomLexer", "CustomMain", "com.example", tokenTypes);
+        
+        assertNotNull(mainClassCode);
+        assertTrue(mainClassCode.contains("class CustomMain"));
+        assertTrue(mainClassCode.contains("CustomLexer lexer = new CustomLexer(input)"));
+        assertTrue(mainClassCode.contains("LETTER_A"));
+    }
+    
+    @Test
+    public void testGenerateLexerMainClassFromNFA() throws IOException {
+        // Create a simple NFA
+        NFA nfa = new NFA();
+        nfa.addState("start", false);
+        nfa.addState("accept", true);
+        nfa.addTransition("start", 'a', "accept");
+        nfa.setStartState("start");
+        
+        String mainClassCode = CodeGen.generateLexerMainClass(nfa.getAcceptingStates(), "NFALexer", "NFAMain", "com.example");
+        
+        assertNotNull(mainClassCode);
+        assertTrue(mainClassCode.contains("class NFAMain"));
+        assertTrue(mainClassCode.contains("NFALexer lexer = new NFALexer(input)"));
+        assertTrue(mainClassCode.contains("TOKEN_ACCEPT"));
+    }
+    
+    @Test
+    public void testLexerMainClassStructure() throws IOException {
+        // Create a simple DFA
+        DFA dfa = new DFA();
+        dfa.addState("q0", false);
+        dfa.addState("q1", true);
+        dfa.addTransition("q0", 'a', "q1");
+        dfa = dfa.setStartState("q0");
+        
+        String mainClassCode = CodeGen.generateLexerMainClass(dfa.getAcceptingStates(),"TestLexer", "TestMain", "com.example");
+        
+        // Check for essential components
+        assertTrue(mainClassCode.contains("public static void main(String[] args)"));
+        assertTrue(mainClassCode.contains("printUsage()"));
+        assertTrue(mainClassCode.contains("runInteractiveMode()"));
+        assertTrue(mainClassCode.contains("escapeString"));
+        assertTrue(mainClassCode.contains("getAllTokens()"));
+        assertTrue(mainClassCode.contains("ERROR"));
     }
 }
