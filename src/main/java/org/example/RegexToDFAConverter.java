@@ -14,6 +14,10 @@ import java.util.*;
  * - Dependency Inversion: Depends on abstractions (NFA, DFA)
  */
 public class RegexToDFAConverter {
+    private static long uniqueIdCounter = 0L;
+    private static synchronized String uniqueId() {
+        return "u" + (uniqueIdCounter++);
+    }
     
     /**
      * Converts a regular expression string to a DFA.
@@ -70,9 +74,7 @@ public class RegexToDFAConverter {
         if (regex.startsWith("|")) {
             throw new IllegalArgumentException("Invalid regex: | requires two operands");
         }
-        if (regex.equals(".")) {
-            throw new IllegalArgumentException("Invalid regex: concatenation requires two operands");
-        }
+        // '.' is a wildcard operand; do not treat it as concatenation here
         
         // Check for operators at the end (except for escaped ones)
         char lastChar = regex.charAt(regex.length() - 1);
@@ -101,10 +103,7 @@ public class RegexToDFAConverter {
                 throw new IllegalArgumentException("Invalid regex: | requires two operands");
             }
             
-            // Check for consecutive concatenation operators
-            if (current == '.' && next == '.') {
-                throw new IllegalArgumentException("Invalid regex: concatenation requires two operands");
-            }
+            // Note: '.' is a wildcard operand, not an explicit concatenation operator
         }
         
         // Check for balanced parentheses and nested parentheses
@@ -872,10 +871,10 @@ public class RegexToDFAConverter {
      */
     private static NFA createCharacterNFA(char c) {
         Set<String> acceptingStates = new HashSet<String>();
-        String acceptState = "accept_" + System.nanoTime();
+        String acceptState = "accept_" + uniqueId();
         acceptingStates.add(acceptState);
         
-        String startState = "start_" + System.nanoTime();
+        String startState = "start_" + uniqueId();
         NFA nfa = new NFA(startState, acceptingStates);
         nfa.addTransition(startState, c, acceptState);
         
@@ -887,10 +886,10 @@ public class RegexToDFAConverter {
      */
     private static NFA createCharacterClassNFA(String charClass) {
         Set<String> acceptingStates = new HashSet<String>();
-        String acceptState = "accept_" + System.nanoTime();
+        String acceptState = "accept_" + uniqueId();
         acceptingStates.add(acceptState);
         
-        String startState = "start_" + System.nanoTime();
+        String startState = "start_" + uniqueId();
         NFA nfa = new NFA(startState, acceptingStates);
         
         // Parse character class
@@ -1074,7 +1073,7 @@ public class RegexToDFAConverter {
      */
      private static NFA createEmptyStringNFA() {
         Set<String> acceptingStates = new HashSet<String>();
-        String state = "empty_" + System.nanoTime();
+        String state = "empty_" + uniqueId();
         acceptingStates.add(state);
         
         NFA nfa = new NFA(state, acceptingStates);
@@ -1086,10 +1085,10 @@ public class RegexToDFAConverter {
      */
     private static NFA createWildcardNFA() {
         Set<String> acceptingStates = new HashSet<String>();
-        String acceptState = "accept_" + System.nanoTime();
+        String acceptState = "accept_" + uniqueId();
         acceptingStates.add(acceptState);
         
-        String startState = "start_" + System.nanoTime();
+        String startState = "start_" + uniqueId();
         NFA nfa = new NFA(startState, acceptingStates);
         
         // Add transitions for all printable ASCII characters
@@ -1112,13 +1111,13 @@ public class RegexToDFAConverter {
             return createEmptyStringNFA();
         }
         if (n == 1) {
-            return operand;
+            return cloneNFA(operand);
         }
         
-        // Concatenate the operand n times
-        NFA result = operand;
-        for (int i = 1; i < n; i++) {
-            result = result.concatenate(operand);
+        // Build by concatenating n clones onto an initial empty-string NFA
+        NFA result = createEmptyStringNFA();
+        for (int i = 0; i < n; i++) {
+            result = result.concatenate(cloneNFA(operand));
         }
         return result;
     }
@@ -1128,16 +1127,17 @@ public class RegexToDFAConverter {
      */
     private static NFA createAtLeastQuantifierNFA(NFA operand, int n) {
         if (n == 0) {
-            return operand.star();
+            return cloneNFA(operand).star();
         }
         if (n == 1) {
-            return operand.plus();
+            return cloneNFA(operand).plus();
         }
         
         // First, create exactly n occurrences
         NFA exactN = createExactQuantifierNFA(operand, n);
-        // Then, add zero or more additional occurrences
-        return exactN.concatenate(operand.star());
+        // Then, add zero or more additional occurrences of the same operand
+        NFA tail = cloneNFA(operand).star();
+        return exactN.concatenate(tail);
     }
     
     /**
@@ -1148,7 +1148,7 @@ public class RegexToDFAConverter {
             return createEmptyStringNFA();
         }
         if (m == 1) {
-            return operand.question();
+            return cloneNFA(operand).question();
         }
         
         // For small values of m, use union approach
@@ -1165,7 +1165,7 @@ public class RegexToDFAConverter {
         // Create: (operand?)^m but limit the complexity
         NFA result = createEmptyStringNFA();
         for (int i = 0; i < Math.min(m, 10); i++) { // Limit to 10 to avoid complexity
-            result = result.concatenate(operand.question());
+            result = result.concatenate(cloneNFA(operand).question());
         }
         return result;
     }
@@ -1184,20 +1184,58 @@ public class RegexToDFAConverter {
             return createAtLeastQuantifierNFA(operand, n);
         }
         
-        // For small ranges, use union approach
-        if (m - n <= 5) {
-            NFA result = createExactQuantifierNFA(operand, n);
-            for (int i = n + 1; i <= m; i++) {
-                NFA current = createExactQuantifierNFA(operand, i);
-                result = result.union(current);
-            }
-            return result;
-        }
-        
-        // For larger ranges, use concatenation approach
+        // Use concatenation approach: exactly n occurrences followed by up to (m-n) optional
         NFA exactN = createExactQuantifierNFA(operand, n);
         NFA additional = createAtMostQuantifierNFA(operand, m - n);
         return exactN.concatenate(additional);
+    }
+
+    /**
+     * Creates a deep copy of an NFA with freshly generated state names to avoid collisions.
+     */
+    private static NFA cloneNFA(NFA original) {
+        String suffix = "_" + uniqueId();
+        Map<String, String> rename = new HashMap<String, String>();
+
+        // Create new NFA and map states
+        NFA copy = new NFA();
+        for (String state : original.getStates()) {
+            String newName = state + suffix;
+            rename.put(state, newName);
+            boolean isAccepting = original.getAcceptingStates().contains(state);
+            copy.addState(newName, isAccepting);
+        }
+
+        // Set start state
+        String originalStart = original.getStartState();
+        if (originalStart != null) {
+            copy.setStartState(rename.get(originalStart));
+        }
+
+        // Copy transitions
+        Map<String, Map<Character, Set<String>>> transitions = original.getTransitions();
+        for (Map.Entry<String, Map<Character, Set<String>>> fromEntry : transitions.entrySet()) {
+            String from = rename.get(fromEntry.getKey());
+            for (Map.Entry<Character, Set<String>> symEntry : fromEntry.getValue().entrySet()) {
+                char symbol = symEntry.getKey();
+                for (String toOrig : symEntry.getValue()) {
+                    String to = rename.get(toOrig);
+                    copy.addTransition(from, symbol, to);
+                }
+            }
+        }
+
+        // Copy epsilon transitions
+        Map<String, Set<String>> eps = original.getEpsilonTransitions();
+        for (Map.Entry<String, Set<String>> e : eps.entrySet()) {
+            String from = rename.get(e.getKey());
+            for (String toOrig : e.getValue()) {
+                String to = rename.get(toOrig);
+                copy.addEpsilonTransition(from, to);
+            }
+        }
+
+        return copy;
     }
 
     /**
@@ -1211,6 +1249,10 @@ public class RegexToDFAConverter {
         // Special case: if it's a backslash, it's part of an escape sequence
         if (c == '\\') {
             return true;
+        }
+        // Internal quantifier token should not be treated as operand in postfix
+        if (c == 'Q') {
+            return false;
         }
         
         // Check if it's a special character that's not an operator

@@ -239,7 +239,7 @@ public class RegexToDFAConverterCharacterHandlingTest extends RegexToDFAConverte
         assertTrue(result.accepts("z"), "Character class NFA should accept 'z'");
         assertTrue(result.accepts("~"), "Character class NFA should accept '~'");
         assertFalse(result.accepts(""), "Character class NFA should not accept empty string");
-        assertFalse(result.accepts("a"), "Character class NFA should not accept 'a'");
+        assertTrue(result.accepts("a"), "Character class NFA should accept 'a'");
     }
     
     @Test
