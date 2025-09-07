@@ -525,71 +525,61 @@ public class RegexToDFAConverter {
         
         StringBuilder postfix = new StringBuilder();
         Stack<Character> operators = new Stack<>();
-        boolean needConcat = false;
+        boolean lastCharWasOperand = false; // Tracks if the previous char was an operand for implicit concatenation
         
         for (int i = 0; i < infix.length(); i++) {
             char c = infix.charAt(i);
             
-            if (isOperand(c) || c == '[') {
-                // Handle operands and character classes
-                if (needConcat) {
-                    // Add implicit concatenation operator
-                    while (!operators.isEmpty() && 
-                           getPrecedence(operators.peek()) >= getPrecedence('&')) {
-                        postfix.append(operators.pop());
-                    }
-                    operators.push('&');
+            // Handle implicit concatenation
+            if (lastCharWasOperand && (isOperand(c) || c == '(' || c == '[')) {
+                while (!operators.isEmpty() && 
+                       getPrecedence(operators.peek()) >= getPrecedence('&')) {
+                    postfix.append(operators.pop());
                 }
-                
+                operators.push('&');
+            }
+            
+            if (isOperand(c)) {
+                // Handle escape sequences as operands
                 if (c == '\\' && i + 1 < infix.length()) {
-                    // Handle escape sequences
                     postfix.append(c);
                     postfix.append(infix.charAt(i + 1));
                     i++; // Skip the next character
-                    needConcat = true;
-                } else if (c == '[') {
-                    // Handle character class
-                    StringBuilder charClass = new StringBuilder();
-                    charClass.append('[');
-                    i++; // Skip '['
-                    
-                    boolean inEscape = false;
-                    while (i < infix.length()) {
-                        char cc = infix.charAt(i);
-                        charClass.append(cc);
-                        
-                        if (inEscape) {
-                            inEscape = false;
-                        } else if (cc == '\\') {
-                            inEscape = true;
-                        } else if (cc == ']') {
-                            break;
-                        }
-                        i++;
-                    }
-                    
-                    if (i >= infix.length()) {
-                        throw new IllegalArgumentException("Unclosed character class");
-                    }
-                    
-                    postfix.append(charClass.toString());
                 } else {
                     postfix.append(c);
                 }
-                needConcat = true;
-            } else if (c == '(') {
-                if (needConcat) {
-                    // Add implicit concatenation operator before opening parenthesis
-                    while (!operators.isEmpty() && 
-                           getPrecedence(operators.peek()) >= getPrecedence('&')) {
-                        postfix.append(operators.pop());
+                lastCharWasOperand = true;
+            } else if (c == '[') {
+                // Handle character class
+                StringBuilder charClass = new StringBuilder();
+                charClass.append('[');
+                i++; // Skip '['
+                
+                boolean inEscape = false;
+                while (i < infix.length()) {
+                    char cc = infix.charAt(i);
+                    charClass.append(cc);
+                    
+                    if (inEscape) {
+                        inEscape = false;
+                    } else if (cc == '\\' && cc != ']') { // Don't escape ']' in character class unless explicitly escaped
+                        inEscape = true;
+                    } else if (cc == ']') {
+                        break;
                     }
-                    operators.push('&');
+                    i++;
                 }
+                
+                if (i >= infix.length()) {
+                    throw new IllegalArgumentException("Unclosed character class");
+                }
+                
+                postfix.append(charClass.toString());
+                lastCharWasOperand = true;
+            } else if (c == '(') {
                 operators.push(c);
-                needConcat = false;
+                lastCharWasOperand = false;
             } else if (c == ')') {
-                // Pop until matching '(' is found
                 while (!operators.isEmpty() && operators.peek() != '(') {
                     postfix.append(operators.pop());
                 }
@@ -597,24 +587,13 @@ public class RegexToDFAConverter {
                     throw new IllegalArgumentException("Mismatched parentheses");
                 }
                 operators.pop(); // Remove '('
-                needConcat = true;
+                lastCharWasOperand = true;
             } else if (isOperator(c)) {
                 if (c == '|' && (i == 0 || i == infix.length() - 1)) {
                     throw new IllegalArgumentException("Invalid use of | operator");
                 }
                 
-                // Handle unary operators (they don't need an operand before them)
-                if (c == '*' || c == '+' || c == '?') {
-                    if (i == 0) {
-                        throw new IllegalArgumentException("Nothing to repeat at position " + i);
-                    }
-                    char prevChar = infix.charAt(i - 1);
-                    if (isOperator(prevChar) && prevChar != ')') {
-                        throw new IllegalArgumentException("Nothing to repeat at position " + i);
-                    }
-                }
-                
-                // Handle binary operators
+                // For operators, pop higher or equal precedence operators from stack
                 while (!operators.isEmpty() && 
                        operators.peek() != '(' &&
                        getPrecedence(operators.peek()) >= getPrecedence(c)) {
@@ -622,20 +601,18 @@ public class RegexToDFAConverter {
                 }
                 operators.push(c);
                 
-                // For unary postfix operators (*, +, ?), we still need concatenation after them
+                // Unary operators (*, +, ?) act like operands after them for concatenation purposes
                 if (c == '*' || c == '+' || c == '?') {
-                    needConcat = true;
+                    lastCharWasOperand = true; // Can be followed by implicit concat
                 } else {
-                    needConcat = false;
+                    lastCharWasOperand = false; // Binary operators like | or & reset concat
                 }
             } else if (c == '{') {
                 // Handle quantifiers like {2,}, {3}, {2,5}
                 QuantifierInfo quantifierInfo = parseQuantifier(infix, i);
                 if (quantifierInfo != null) {
-                    // Apply the quantifier to the previous operand
-                    if (postfix.length() == 0) {
-                        throw new IllegalArgumentException("Nothing to repeat at position " + i);
-                    }
+                    // A quantifier applies to the *previous* operand, so we don't add implicit concat before it
+                    // The operand should already be in the postfix string
                     
                     // Create a special quantifier operator that the NFA builder can understand
                     // Format: Q<type><min><max> where type is E, A, M, R for exact, at-least, at-most, range
@@ -656,28 +633,21 @@ public class RegexToDFAConverter {
                             quantifierOp.append("R").append(quantifierInfo.min).append(",").append(quantifierInfo.max);
                             break;
                         default:
-                            // Simple quantifier
-                            if (quantifierInfo.replacement.equals("*")) {
-                                postfix.append('*');
-                            } else if (quantifierInfo.replacement.equals("+")) {
-                                postfix.append('+');
-                            } else if (quantifierInfo.replacement.equals("?")) {
-                                postfix.append('?');
-                            }
-                            break;
+                            throw new IllegalStateException("Unexpected quantifier type");
                     }
                     
-                    if (quantifierInfo.type != QuantifierType.SIMPLE) {
-                        postfix.append(quantifierOp.toString());
-                    }
-                    
-                    i += quantifierInfo.length - 1; // -1 because the loop will increment
-                    needConcat = true;
+                    postfix.append(quantifierOp.toString());
+                    i += quantifierInfo.length - 1; // Adjust index
+                    lastCharWasOperand = true; // Quantifier acts like an operand for subsequent concatenation
                 } else {
                     // Not a valid quantifier, treat as literal
                     postfix.append(c);
-                    needConcat = true;
+                    lastCharWasOperand = true;
                 }
+            } else {
+                // Literal character
+                postfix.append(c);
+                lastCharWasOperand = true;
             }
         }
         
