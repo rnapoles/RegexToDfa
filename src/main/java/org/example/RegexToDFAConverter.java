@@ -493,10 +493,10 @@ public class RegexToDFAConverter {
         for (int i = 1; i < n; i++) {
             result.append("&");
         }
-        // Then, (m-n) optional occurrences: ? & ? & ... & ?
+        // Then, (m-n) optional occurrences appended as "&?&? ..."
         int additional = m - n;
         for (int i = 0; i < additional; i++) {
-            result.append("?&");
+            result.append("&?");
         }
         return result.toString();
     }
@@ -512,11 +512,12 @@ public class RegexToDFAConverter {
             return "?"; // Zero or one
         }
         
-        // For m > 1: m optional occurrences: ? & ? & ... & ?
+        // For m > 1: (m-1) occurrences of "?&" followed by a final "?"
         StringBuilder result = new StringBuilder();
-        for (int i = 0; i < m; i++) {
+        for (int i = 0; i < m - 1; i++) {
             result.append("?&");
         }
+        result.append("?");
         return result.toString();
     }
     
@@ -919,6 +920,12 @@ public class RegexToDFAConverter {
         while (i < charClass.length()) {
             char currentChar = charClass.charAt(i);
 
+            // First, handle a hex range like \xHH-\xHH starting at current position
+            if (currentChar == '\\' && tryConsumeHexRange(charClass, i, characters)) {
+                i += 9; // consumes "\\xHH-\\xHH"
+                continue;
+            }
+
             if (currentChar == '\\') {
                 i = handleEscapedInCharClass(charClass, i, characters);
                 continue;
@@ -931,10 +938,6 @@ public class RegexToDFAConverter {
             }
 
             if (isPotentialRange(charClass, i)) {
-                if (tryConsumeHexRange(charClass, i, characters)) {
-                    i += 9;
-                    continue;
-                }
                 i = consumeSimpleRange(charClass, i, characters);
                 continue;
             }
@@ -1019,7 +1022,7 @@ public class RegexToDFAConverter {
         if (currentChar == '\\' && i + 4 < charClass.length()) {
             String startHex = charClass.substring(i + 2, i + 4);
             boolean startHexValid = startHex.matches("[0-9a-fA-F]{2}");
-            boolean hasDashAndSecondHex = (i + 9 < charClass.length() && charClass.charAt(i + 4) == '-' &&
+            boolean hasDashAndSecondHex = (i + 8 < charClass.length() && charClass.charAt(i + 4) == '-' &&
                     charClass.charAt(i + 5) == '\\' && charClass.charAt(i + 6) == 'x' &&
                     Character.toString(charClass.charAt(i + 7)).matches("[0-9a-fA-F]") &&
                     Character.toString(charClass.charAt(i + 8)).matches("[0-9a-fA-F]"));
