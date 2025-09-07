@@ -64,9 +64,9 @@ public class {{ mainClassName }} {
         System.out.println("  java {{ mainClassName }} \"a b c\"");
         System.out.println();
         System.out.println("This lexer recognizes the following patterns:");
-        {% for state in acceptingStates %}
+{% for state in acceptingStates %}
         System.out.println("  - {{ tokenTypes[state] }}: {{ state }}");
-        {% endfor %}
+{% endfor %}
     }
     
     private static String escapeString(String value) {

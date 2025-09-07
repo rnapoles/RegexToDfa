@@ -9,9 +9,9 @@ import java.util.*;
 public class {{ className }} {
     
     // Token types
-    {% for state in acceptingStates %}
+{% for state in acceptingStates %}
     public static final String {{ tokenTypes[state] }} = "{{ tokenTypes[state] }}";
-    {% endfor %}
+{% endfor %}
     public static final String EOF = "EOF";
     public static final String ERROR = "ERROR";
     
@@ -134,22 +134,22 @@ public class {{ className }} {
     
     private Set<String> getAcceptingStates(Set<String> states) {
         Set<String> accepting = new HashSet<>();
-        {% for acceptingState in acceptingStates %}
+{% for acceptingState in acceptingStates %}
         if (states.contains("{{ acceptingState }}")) {
             accepting.add("{{ acceptingState }}");
         }
-        {% endfor %}
+{% endfor %}
         return accepting;
     }
     
     private String getTokenType(Set<String> acceptingStates) {
         // Return the first accepting state's token type
         // In practice, you might want to implement priority rules
-        {% for state in acceptingStates %}
+{% for state in acceptingStates %}
         if (acceptingStates.contains("{{ state }}")) {
             return {{ tokenTypes[state] }};
         }
-        {% endfor %}
+{% endfor %}
         return ERROR;
     }
 

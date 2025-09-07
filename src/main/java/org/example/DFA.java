@@ -6,7 +6,7 @@ import java.util.*;
  * Deterministic Finite Automaton implementation.
  * Follows SOLID principles with clear separation of concerns.
  */
-public class DFA {
+public class DFA implements Automata {
     private final Set<String> states;
     private final Set<Character> alphabet;
     private final Map<String, Map<Character, String>> transitions;
@@ -22,7 +22,7 @@ public class DFA {
     }
     
     public DFA(String startState, Set<String> acceptingStates) {
-        this.states = new HashSet<String>();
+        this.states = new HashSet<>();
         this.alphabet = new HashSet<Character>();
         this.transitions = new HashMap<String, Map<Character, String>>();
         this.startState = startState;
@@ -287,7 +287,7 @@ public class DFA {
     }
     
     private Map<String, String> findEquivalentStates(DFA dfa) {
-        Map<String, String> equivalenceClasses = new HashMap<String, String>();
+        Map<String, String> equivalenceClasses = new HashMap<>();
         
         // Initialize: all states start in their own equivalence class
         for (String state : dfa.states) {

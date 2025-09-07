@@ -9,8 +9,8 @@ import java.util.*;
 public class StarLexer {
     
     // Token types
-        public static final String TOKEN_Q1 = "TOKEN_Q1";
-        public static final String EOF = "EOF";
+    public static final String TOKEN_Q1 = "TOKEN_Q1";
+    public static final String EOF = "EOF";
     public static final String ERROR = "ERROR";
     
     private String input;
@@ -132,19 +132,19 @@ public class StarLexer {
     
     private Set<String> getAcceptingStates(Set<String> states) {
         Set<String> accepting = new HashSet<>();
-                if (states.contains("q1")) {
+        if (states.contains("q1")) {
             accepting.add("q1");
         }
-                return accepting;
+        return accepting;
     }
     
     private String getTokenType(Set<String> acceptingStates) {
         // Return the first accepting state's token type
         // In practice, you might want to implement priority rules
-                if (acceptingStates.contains("q1")) {
+        if (acceptingStates.contains("q1")) {
             return TOKEN_Q1;
         }
-                return ERROR;
+        return ERROR;
     }
 
 }

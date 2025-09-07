@@ -9,9 +9,15 @@ import java.util.*;
 public class NumberLexer {
     
     // Token types
+    //public static final String q0 = "q0";
+
+    public static final String q1 = "q1";
     public static final String q0 = "q0";
-        public static final String TOKEN_Q1 = "TOKEN_Q1";
-        public static final String EOF = "EOF";
+
+    public static final String TOKEN_Q1 = "TOKEN_Q1";
+    public static final String TOKEN_Q0 = "TOKEN_Q0";
+
+    public static final String EOF = "EOF";
     public static final String ERROR = "ERROR";
     
     // Current state
@@ -30,9 +36,9 @@ public class NumberLexer {
         this.startPosition = 0;
         this.currentState = q0;
         
-          this.states.add("q1");
-          this.states.add("q0");
-    
+        this.states.add(q1);
+        this.states.add(q0);
+
     }
     
     /**
@@ -44,8 +50,8 @@ public class NumberLexer {
             return new Token(EOF, "", position);
         }
         
-        startPosition = position;
         currentState = q0;
+        startPosition = position;
         StringBuilder tokenValue = new StringBuilder();
         
         while (position < input.length()) {
@@ -84,12 +90,10 @@ public class NumberLexer {
         Token token;
         
         while ((token = nextToken()) != null && !token.getType().equals(EOF)) {
-
             if (token.getType().equals(ERROR)) {
                 tokens.add(token);
                 break;
             }
-
             tokens.add(token);
         }
         
@@ -100,59 +104,59 @@ public class NumberLexer {
     private String getNextState(String currentState, char symbol) {
         // Generated transition logic using actual DFA transitions
         // More efficient implementation using switch statements
-                if ("q1".equals(currentState)) {
+        if (q1.equals(currentState)) {
             switch (symbol) {
-                                                case '0':
-                    return "q1";
-                                                                case '1':
-                    return "q1";
-                                                                case '2':
-                    return "q1";
-                                                                case '3':
-                    return "q1";
-                                                                case '4':
-                    return "q1";
-                                                                case '5':
-                    return "q1";
-                                                                case '6':
-                    return "q1";
-                                                                case '7':
-                    return "q1";
-                                                                case '8':
-                    return "q1";
-                                                                case '9':
-                    return "q1";
-                                                                                                                                                                                                                                                                                                                                                                                default:
+                case '0':
+                    return q1;
+                case '1':
+                    return q1;
+                case '2':
+                    return q1;
+                case '3':
+                    return q1;
+                case '4':
+                    return q1;
+                case '5':
+                    return q1;
+                case '6':
+                    return q1;
+                case '7':
+                    return q1;
+                case '8':
+                    return q1;
+                case '9':
+                    return q1;
+                default:
                     return null;
             }
         }
-                if ("q0".equals(currentState)) {
+        if (q0.equals(currentState)) {
             switch (symbol) {
-                                                                                                                                                                                                                                                                                                                                                                                case '0':
-                    return "q1";
-                                                                case '1':
-                    return "q1";
-                                                                case '2':
-                    return "q1";
-                                                                case '3':
-                    return "q1";
-                                                                case '4':
-                    return "q1";
-                                                                case '5':
-                    return "q1";
-                                                                case '6':
-                    return "q1";
-                                                                case '7':
-                    return "q1";
-                                                                case '8':
-                    return "q1";
-                                                                case '9':
-                    return "q1";
-                                                default:
+                case '0':
+                    return q1;
+                case '1':
+                    return q1;
+                case '2':
+                    return q1;
+                case '3':
+                    return q1;
+                case '4':
+                    return q1;
+                case '5':
+                    return q1;
+                case '6':
+                    return q1;
+                case '7':
+                    return q1;
+                case '8':
+                    return q1;
+                case '9':
+                    return q1;
+                default:
                     return null;
             }
         }
-                return null;
+        return null;
     }
     
     private Set<String> getStates() {
@@ -160,15 +164,21 @@ public class NumberLexer {
     }
 
     private boolean isAcceptingState(String state) {
-
-                  return "q1".equals(state))
-            }
+        return q1.equals(state);
+    }
     
     private String getTokenType(String state) {
-                if ("q1".equals(state)) {
+
+        if (q1.equals(state)) {
             return TOKEN_Q1;
         }
-                return ERROR;
+
+        if (q0.equals(state)) {
+            return TOKEN_Q0;
+        }
+
+
+        return ERROR;
     }
 
 }

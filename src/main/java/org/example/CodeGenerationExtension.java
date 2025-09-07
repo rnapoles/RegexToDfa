@@ -23,6 +23,10 @@ public class CodeGenerationExtension extends AbstractExtension {
         functions.put("indent", new IndentFunction());
         functions.put("javadoc", new JavadocFunction());
         functions.put("isKeyword", new IsKeywordFunction());
+        functions.put("formatCode", new FormatCodeFunction());
+        functions.put("formatMethod", new FormatMethodFunction());
+        functions.put("formatClass", new FormatClassFunction());
+        functions.put("formatVariable", new FormatVariableFunction());
 
         return functions;
     }
@@ -37,6 +41,10 @@ public class CodeGenerationExtension extends AbstractExtension {
         filters.put("javadoc", new JavadocFilter());
         filters.put("capitalize", new CapitalizeFilter());
         filters.put("quote", new QuoteFilter());
+        filters.put("formatCode", new FormatCodeFilter());
+        filters.put("formatMethod", new FormatMethodFilter());
+        filters.put("formatClass", new FormatClassFilter());
+        filters.put("formatVariable", new FormatVariableFilter());
 
         return filters;
     }
@@ -54,7 +62,7 @@ public class CodeGenerationExtension extends AbstractExtension {
 
         @Override
         public List<String> getArgumentNames() {
-            return Arrays.asList("input");
+            return List.of("input");
         }
     }
 
@@ -71,7 +79,7 @@ public class CodeGenerationExtension extends AbstractExtension {
 
         @Override
         public List<String> getArgumentNames() {
-            return Arrays.asList("input");
+            return List.of("input");
         }
     }
 
@@ -153,7 +161,7 @@ public class CodeGenerationExtension extends AbstractExtension {
 
         @Override
         public List<String> getArgumentNames() {
-            return Arrays.asList("word");
+            return List.of("word");
         }
     }
 
@@ -248,7 +256,7 @@ public class CodeGenerationExtension extends AbstractExtension {
 
         @Override
         public List<String> getArgumentNames() {
-            return Arrays.asList("indentLevel");
+            return List.of("indentLevel");
         }
     }
 
@@ -281,12 +289,12 @@ public class CodeGenerationExtension extends AbstractExtension {
             if (input == null) return "\"\"";
             String quoteChar = (String) args.get("quoteChar");
             if (quoteChar == null) quoteChar = "\"";
-            return quoteChar + input.toString() + quoteChar;
+            return quoteChar + input + quoteChar;
         }
 
         @Override
         public List<String> getArgumentNames() {
-            return Arrays.asList("quoteChar");
+            return List.of("quoteChar");
         }
     }
 
@@ -340,5 +348,145 @@ public class CodeGenerationExtension extends AbstractExtension {
         }
 
         return result.toString();
+    }
+
+    // NEW FORMATTING FUNCTIONS
+
+    /**
+     * Function to format Java code
+     */
+    public static class FormatCodeFunction implements Function {
+        @Override
+        public Object execute(Map<String, Object> args, PebbleTemplate self, EvaluationContext context, int lineNumber) {
+            String code = (String) args.get("code");
+            if (code == null) return "";
+            return JavaCodeFormatter.formatComplete(code);
+        }
+
+        @Override
+        public List<String> getArgumentNames() {
+            return List.of("code");
+        }
+    }
+
+    /**
+     * Function to format method signatures
+     */
+    public static class FormatMethodFunction implements Function {
+        @Override
+        public Object execute(Map<String, Object> args, PebbleTemplate self, EvaluationContext context, int lineNumber) {
+            String signature = (String) args.get("signature");
+            if (signature == null) return "";
+            return JavaCodeFormatter.formatMethodSignature(signature);
+        }
+
+        @Override
+        public List<String> getArgumentNames() {
+            return List.of("signature");
+        }
+    }
+
+    /**
+     * Function to format class declarations
+     */
+    public static class FormatClassFunction implements Function {
+        @Override
+        public Object execute(Map<String, Object> args, PebbleTemplate self, EvaluationContext context, int lineNumber) {
+            String declaration = (String) args.get("declaration");
+            if (declaration == null) return "";
+            return JavaCodeFormatter.formatClassDeclaration(declaration);
+        }
+
+        @Override
+        public List<String> getArgumentNames() {
+            return List.of("declaration");
+        }
+    }
+
+    /**
+     * Function to format variable declarations
+     */
+    public static class FormatVariableFunction implements Function {
+        @Override
+        public Object execute(Map<String, Object> args, PebbleTemplate self, EvaluationContext context, int lineNumber) {
+            String declaration = (String) args.get("declaration");
+            if (declaration == null) return "";
+            return JavaCodeFormatter.formatVariableDeclaration(declaration);
+        }
+
+        @Override
+        public List<String> getArgumentNames() {
+            return List.of("declaration");
+        }
+    }
+
+    // NEW FORMATTING FILTERS
+
+    /**
+     * Filter to format Java code
+     */
+    public static class FormatCodeFilter implements Filter {
+        @Override
+        public Object apply(Object input, Map<String, Object> args, PebbleTemplate self,
+                            EvaluationContext context, int lineNumber) {
+            if (input == null) return "";
+            return JavaCodeFormatter.formatComplete(input.toString());
+        }
+
+        @Override
+        public List<String> getArgumentNames() {
+            return null;
+        }
+    }
+
+    /**
+     * Filter to format method signatures
+     */
+    public static class FormatMethodFilter implements Filter {
+        @Override
+        public Object apply(Object input, Map<String, Object> args, PebbleTemplate self,
+                            EvaluationContext context, int lineNumber) {
+            if (input == null) return "";
+            return JavaCodeFormatter.formatMethodSignature(input.toString());
+        }
+
+        @Override
+        public List<String> getArgumentNames() {
+            return null;
+        }
+    }
+
+    /**
+     * Filter to format class declarations
+     */
+    public static class FormatClassFilter implements Filter {
+        @Override
+        public Object apply(Object input, Map<String, Object> args, PebbleTemplate self,
+                            EvaluationContext context, int lineNumber) {
+            if (input == null) return "";
+            return JavaCodeFormatter.formatClassDeclaration(input.toString());
+        }
+
+        @Override
+        public List<String> getArgumentNames() {
+            return null;
+        }
+    }
+
+    /**
+     * Filter to format variable declarations
+     */
+    public static class FormatVariableFilter implements Filter {
+        @Override
+        public Object apply(Object input, Map<String, Object> args, PebbleTemplate self,
+                            EvaluationContext context, int lineNumber) {
+            if (input == null) return "";
+            return JavaCodeFormatter.formatVariableDeclaration(input.toString());
+        }
+
+        @Override
+        public List<String> getArgumentNames() {
+            return null;
+        }
     }
 }

@@ -228,7 +228,9 @@ public class LexerGeneratorTests {
         dfa.addTransition("q0", 'a', "q1");
         dfa = dfa.setStartState("q0");
 
-        String mainClassCode = CodeGen.generateLexerMainClass(dfa.getAcceptingStates(),"TestLexer", "TestMain", "com.example");
+        LexerGenerator generator = new LexerGenerator();
+        Map<String, String> tokenTypes = new HashMap<>();
+        String mainClassCode = generator.generateLexerMainClass(dfa,"TestLexer", "TestMain", "com.example", tokenTypes);
         
         assertNotNull(mainClassCode);
         assertTrue(mainClassCode.contains("class TestMain"));
@@ -248,8 +250,10 @@ public class LexerGeneratorTests {
         
         Map<String, String> tokenTypes = new HashMap<>();
         tokenTypes.put("q1", "LETTER_A");
-        
-        String mainClassCode = CodeGen.generateLexerMainClass(dfa.getAcceptingStates(), "CustomLexer", "CustomMain", "com.example", tokenTypes);
+
+        LexerGenerator generator = new LexerGenerator();
+        Map<String, String> defaultTokenTypes = new HashMap<>();
+        String mainClassCode = generator.generateLexerMainClass(dfa, "CustomLexer", "CustomMain", "com.example", tokenTypes);
         
         assertNotNull(mainClassCode);
         assertTrue(mainClassCode.contains("class CustomMain"));
@@ -265,8 +269,10 @@ public class LexerGeneratorTests {
         nfa.addState("accept", true);
         nfa.addTransition("start", 'a', "accept");
         nfa.setStartState("start");
-        
-        String mainClassCode = CodeGen.generateLexerMainClass(nfa.getAcceptingStates(), "NFALexer", "NFAMain", "com.example");
+
+        LexerGenerator generator = new LexerGenerator();
+        Map<String, String> defaultTokenTypes = new HashMap<>();
+        String mainClassCode = generator.generateLexerMainClass(nfa, "NFALexer", "NFAMain", "com.example", defaultTokenTypes);
         
         assertNotNull(mainClassCode);
         assertTrue(mainClassCode.contains("class NFAMain"));
@@ -282,8 +288,10 @@ public class LexerGeneratorTests {
         dfa.addState("q1", true);
         dfa.addTransition("q0", 'a', "q1");
         dfa = dfa.setStartState("q0");
-        
-        String mainClassCode = CodeGen.generateLexerMainClass(dfa.getAcceptingStates(),"TestLexer", "TestMain", "com.example");
+
+        LexerGenerator generator = new LexerGenerator();
+        Map<String, String> defaultTokenTypes = new HashMap<>();
+        String mainClassCode = generator.generateLexerMainClass(dfa,"TestLexer", "TestMain", "com.example", defaultTokenTypes);
         
         // Check for essential components
         assertTrue(mainClassCode.contains("public static void main(String[] args)"));

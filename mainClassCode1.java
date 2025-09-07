@@ -64,8 +64,8 @@ public class AbLexerMain {
         System.out.println("  java AbLexerMain \"a b c\"");
         System.out.println();
         System.out.println("This lexer recognizes the following patterns:");
-                System.out.println("  - TOKEN_Q2: q2");
-            }
+        System.out.println("  - TOKEN_Q2: q2");
+    }
     
     private static String escapeString(String value) {
         if (value == null) return "null";

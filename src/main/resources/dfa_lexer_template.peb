@@ -9,10 +9,16 @@ import java.util.*;
 public class {{ className }} {
     
     // Token types
-    public static final String q0 = "{{ startState }}";
-    {% for state in acceptingStates %}
+    //public static final String q0 = "{{ startState }}";
+
+{% for fromState in states %}
+    public static final String {{ fromState }} = "{{ fromState }}";
+{% endfor %}
+
+{% for state in states %}
     public static final String {{ tokenTypes[state] }} = "{{ tokenTypes[state] }}";
-    {% endfor %}
+{% endfor %}
+
     public static final String EOF = "EOF";
     public static final String ERROR = "ERROR";
     
@@ -32,9 +38,9 @@ public class {{ className }} {
         this.startPosition = 0;
         this.currentState = q0;
         
-    {% for fromState in states %}
-      this.states.add("{{ fromState }}");
-    {% endfor %}
+{% for fromState in states %}
+        this.states.add({{ fromState }});
+{% endfor %}
 
     }
     
@@ -47,8 +53,8 @@ public class {{ className }} {
             return new Token(EOF, "", position);
         }
         
-        startPosition = position;
         currentState = q0;
+        startPosition = position;
         StringBuilder tokenValue = new StringBuilder();
         
         while (position < input.length()) {
@@ -87,12 +93,10 @@ public class {{ className }} {
         Token token;
         
         while ((token = nextToken()) != null && !token.getType().equals(EOF)) {
-
             if (token.getType().equals(ERROR)) {
                 tokens.add(token);
                 break;
             }
-
             tokens.add(token);
         }
         
@@ -103,20 +107,20 @@ public class {{ className }} {
     private String getNextState(String currentState, char symbol) {
         // Generated transition logic using actual DFA transitions
         // More efficient implementation using switch statements
-        {% for fromState in states %}
-        if ("{{ fromState }}".equals(currentState)) {
+{% for fromState in states %}
+        if ({{ fromState }}.equals(currentState)) {
             switch (symbol) {
-                {% for transition in flattenedTransitions %}
-                {% if transition.fromState == fromState %}
+{% for transition in flattenedTransitions %}
+{% if transition.fromState == fromState %}
                 case '{{ transition.symbol }}':
-                    return "{{ transition.toState }}";
-                {% endif %}
-                {% endfor %}
+                    return {{ transition.toState }};
+{% endif %}
+{% endfor %}
                 default:
                     return null;
             }
         }
-        {% endfor %}
+{% endfor %}
         return null;
     }
     
@@ -125,25 +129,27 @@ public class {{ className }} {
     }
 
     private boolean isAcceptingState(String state) {
-
-        {% if acceptingStates.size() == 1 %}
-          return "{{ acceptingStates | first }}".equals(state))
-        {% else %}
-          {% for acceptingState in acceptingStates %}
-          if ("{{ acceptingState }}".equals(state)) {
-              return true;
-          }
-          {% endfor %}
-          return false;
-        {% endif %}
+{% if acceptingStates.size() == 1 %}
+        return {{ acceptingStates | first }}.equals(state);
+{% else %}
+{% for acceptingState in acceptingStates %}
+        if ({{ acceptingState }}.equals(state)) {
+            return true;
+        }
+{% endfor %}
+        return false;
+{% endif %}
     }
     
     private String getTokenType(String state) {
-        {% for state in acceptingStates %}
-        if ("{{ state }}".equals(state)) {
-            return {{ tokenTypes[state] }};
+
+{% for fromState in states %}
+        if ({{ fromState }}.equals(state)) {
+            return {{ tokenTypes[fromState] }};
         }
-        {% endfor %}
+
+{% endfor %}
+
         return ERROR;
     }
 

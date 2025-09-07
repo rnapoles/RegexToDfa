@@ -9,9 +9,17 @@ import java.util.*;
 public class CustomLexer {
     
     // Token types
+    //public static final String q0 = "q0";
+
+    public static final String q1 = "q1";
+    public static final String q2 = "q2";
     public static final String q0 = "q0";
-        public static final String IDENTIFIER = "IDENTIFIER";
-        public static final String EOF = "EOF";
+
+    public static final String TOKEN_Q1 = "TOKEN_Q1";
+    public static final String TOKEN_Q2 = "TOKEN_Q2";
+    public static final String TOKEN_Q0 = "TOKEN_Q0";
+
+    public static final String EOF = "EOF";
     public static final String ERROR = "ERROR";
     
     // Current state
@@ -30,10 +38,10 @@ public class CustomLexer {
         this.startPosition = 0;
         this.currentState = q0;
         
-          this.states.add("q1");
-          this.states.add("q2");
-          this.states.add("q0");
-    
+        this.states.add(q1);
+        this.states.add(q2);
+        this.states.add(q0);
+
     }
     
     /**
@@ -45,8 +53,8 @@ public class CustomLexer {
             return new Token(EOF, "", position);
         }
         
-        startPosition = position;
         currentState = q0;
+        startPosition = position;
         StringBuilder tokenValue = new StringBuilder();
         
         while (position < input.length()) {
@@ -85,12 +93,10 @@ public class CustomLexer {
         Token token;
         
         while ((token = nextToken()) != null && !token.getType().equals(EOF)) {
-
             if (token.getType().equals(ERROR)) {
                 tokens.add(token);
                 break;
             }
-
             tokens.add(token);
         }
         
@@ -101,29 +107,29 @@ public class CustomLexer {
     private String getNextState(String currentState, char symbol) {
         // Generated transition logic using actual DFA transitions
         // More efficient implementation using switch statements
-                if ("q1".equals(currentState)) {
+        if (q1.equals(currentState)) {
             switch (symbol) {
-                                                case 'b':
-                    return "q2";
-                                                                                default:
+                case 'b':
+                    return q2;
+                default:
                     return null;
             }
         }
-                if ("q2".equals(currentState)) {
+        if (q2.equals(currentState)) {
             switch (symbol) {
-                                                                                                default:
+                default:
                     return null;
             }
         }
-                if ("q0".equals(currentState)) {
+        if (q0.equals(currentState)) {
             switch (symbol) {
-                                                                                case 'a':
-                    return "q1";
-                                                default:
+                case 'a':
+                    return q1;
+                default:
                     return null;
             }
         }
-                return null;
+        return null;
     }
     
     private Set<String> getStates() {
@@ -131,15 +137,25 @@ public class CustomLexer {
     }
 
     private boolean isAcceptingState(String state) {
-
-                  return "q2".equals(state))
-            }
+        return q2.equals(state);
+    }
     
     private String getTokenType(String state) {
-                if ("q2".equals(state)) {
-            return IDENTIFIER;
+
+        if (q1.equals(state)) {
+            return TOKEN_Q1;
         }
-                return ERROR;
+
+        if (q2.equals(state)) {
+            return TOKEN_Q2;
+        }
+
+        if (q0.equals(state)) {
+            return TOKEN_Q0;
+        }
+
+
+        return ERROR;
     }
 
 }

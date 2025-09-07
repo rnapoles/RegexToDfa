@@ -10,8 +10,10 @@ public class AbLexer {
     
     // Token types
     public static final String q0 = "q0";
-        public static final String TOKEN_Q2 = "TOKEN_Q2";
-        public static final String EOF = "EOF";
+    public static final String TOKEN_Q1 = "TOKEN_Q1";
+    public static final String TOKEN_Q2 = "TOKEN_Q2";
+    public static final String TOKEN_Q0 = "TOKEN_Q0";
+    public static final String EOF = "EOF";
     public static final String ERROR = "ERROR";
     
     // Current state
@@ -30,10 +32,9 @@ public class AbLexer {
         this.startPosition = 0;
         this.currentState = q0;
         
-          this.states.add("q1");
-          this.states.add("q2");
-          this.states.add("q0");
-    
+        this.states.add("q1");
+        this.states.add("q2");
+        this.states.add("q0");
     }
     
     /**
@@ -85,12 +86,10 @@ public class AbLexer {
         Token token;
         
         while ((token = nextToken()) != null && !token.getType().equals(EOF)) {
-
             if (token.getType().equals(ERROR)) {
                 tokens.add(token);
                 break;
             }
-
             tokens.add(token);
         }
         
@@ -101,29 +100,29 @@ public class AbLexer {
     private String getNextState(String currentState, char symbol) {
         // Generated transition logic using actual DFA transitions
         // More efficient implementation using switch statements
-                if ("q1".equals(currentState)) {
+        if ("q1".equals(currentState)) {
             switch (symbol) {
-                                                case 'b':
+                case 'b':
                     return "q2";
-                                                                                default:
+                default:
                     return null;
             }
         }
-                if ("q2".equals(currentState)) {
+        if ("q2".equals(currentState)) {
             switch (symbol) {
-                                                                                                default:
+                default:
                     return null;
             }
         }
-                if ("q0".equals(currentState)) {
+        if ("q0".equals(currentState)) {
             switch (symbol) {
-                                                                                case 'a':
+                case 'a':
                     return "q1";
-                                                default:
+                default:
                     return null;
             }
         }
-                return null;
+        return null;
     }
     
     private Set<String> getStates() {
@@ -131,15 +130,22 @@ public class AbLexer {
     }
 
     private boolean isAcceptingState(String state) {
-
-                  return "q2".equals(state))
-            }
+        return "q2".equals(state);
+    }
     
     private String getTokenType(String state) {
-                if ("q2".equals(state)) {
-            return TOKEN_Q2;
+    
+        if ("q1".equals(state)) {
+            return ;
         }
-                return ERROR;
+        if ("q2".equals(state)) {
+            return ;
+        }
+        if ("q0".equals(state)) {
+            return ;
+        }
+
+        return ERROR;
     }
 
 }

@@ -6,7 +6,7 @@ import java.util.*;
  * Non-deterministic Finite Automaton implementation.
  * Follows SOLID principles with clear separation of concerns.
  */
-public class NFA {
+public class NFA implements Automata {
     private final Set<String> states;
     private final Set<Character> alphabet;
     private final Map<String, Map<Character, Set<String>>> transitions;
