@@ -1,0 +1,144 @@
+package {{ packageName }};
+
+import java.util.*;
+
+/**
+ * Generated lexer class from DFA.
+ * This class provides tokenization capabilities based on the DFA structure.
+ */
+public class {{ className }} {
+    
+    // Token types
+    {% for state in acceptingStates %}
+    public static final String {{ tokenTypes[state] }} = "{{ tokenTypes[state] }}";
+    {% endfor %}
+    public static final String EOF = "EOF";
+    public static final String ERROR = "ERROR";
+    
+    // Current state
+    private String currentState;
+    private String input;
+    private int position;
+    private int startPosition;
+    
+    public {{ className }}(String input) {
+        this.input = input;
+        this.position = 0;
+        this.startPosition = 0;
+        this.currentState = "{{ startState }}";
+    }
+    
+    /**
+     * Gets the next token from the input.
+     * @return the next token or null if end of input
+     */
+    public Token nextToken() {
+        if (position >= input.length()) {
+            return new Token(EOF, "", position);
+        }
+        
+        startPosition = position;
+        currentState = "{{ startState }}";
+        StringBuilder tokenValue = new StringBuilder();
+        
+        while (position < input.length()) {
+            char currentChar = input.charAt(position);
+            String nextState = getNextState(currentState, currentChar);
+            
+            if (nextState == null) {
+                // No transition available, check if current state is accepting
+                if (isAcceptingState(currentState)) {
+                    return new Token(getTokenType(currentState), tokenValue.toString(), startPosition);
+                } else {
+                    // Error state
+                    return new Token(ERROR, String.valueOf(currentChar), position);
+                }
+            }
+            
+            currentState = nextState;
+            tokenValue.append(currentChar);
+            position++;
+        }
+        
+        // End of input reached
+        if (isAcceptingState(currentState)) {
+            return new Token(getTokenType(currentState), tokenValue.toString(), startPosition);
+        } else {
+            return new Token(ERROR, tokenValue.toString(), startPosition);
+        }
+    }
+    
+    /**
+     * Gets all tokens from the input.
+     * @return list of all tokens
+     */
+    public List<Token> getAllTokens() {
+        List<Token> tokens = new ArrayList<>();
+        Token token;
+        
+        while ((token = nextToken()) != null && !token.getType().equals(EOF)) {
+            tokens.add(token);
+        }
+        
+        tokens.add(new Token(EOF, "", position));
+        return tokens;
+    }
+    
+    private String getNextState(String currentState, char symbol) {
+        // Generated transition logic
+        {% for fromState in states %}
+        if ("{{ fromState }}".equals(currentState)) {
+            {% for symbol in alphabet %}
+            if (symbol == '{{ symbol }}') {
+                // This would need to be generated based on actual transitions
+                // For now, return null to indicate no transition
+                return null;
+            }
+            {% endfor %}
+        }
+        {% endfor %}
+        return null;
+    }
+    
+    private boolean isAcceptingState(String state) {
+        {% for acceptingState in acceptingStates %}
+        if ("{{ acceptingState }}".equals(state)) {
+            return true;
+        }
+        {% endfor %}
+        return false;
+    }
+    
+    private String getTokenType(String state) {
+        {% for state in acceptingStates %}
+        if ("{{ state }}".equals(state)) {
+            return {{ tokenTypes[state] }};
+        }
+        {% endfor %}
+        return ERROR;
+    }
+    
+    /**
+     * Token class representing a recognized token.
+     */
+    public static class Token {
+        private final String type;
+        private final String value;
+        private final int position;
+        
+        public Token(String type, String value, int position) {
+            this.type = type;
+            this.value = value;
+            this.position = position;
+        }
+        
+        public String getType() { return type; }
+        public String getValue() { return value; }
+        public int getPosition() { return position; }
+        
+        @Override
+        public String toString() {
+            return String.format("Token{type='%s', value='%s', position=%d}", type, value, position);
+        }
+    }
+}

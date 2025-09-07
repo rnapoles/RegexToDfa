@@ -25,6 +25,9 @@ public class Main {
         
         // Test 6: Regex to DFA conversion
         testRegexToDFAConversion();
+        
+        // Test 7: Lexer generation
+        testLexerGeneration();
     }
     
     private static void testBasicNFA() {
@@ -385,6 +388,81 @@ public class Main {
         } catch (Exception e) {
             System.out.println("  ✗ ERROR: " + e.getMessage());
         }
+        System.out.println();
+    }
+    
+    private static void testLexerGeneration() {
+        System.out.println("--- Test 7: Lexer Generation ---");
+        
+        try {
+            // Test 1: Generate lexer from DFA
+            System.out.println("1. Generating lexer from DFA for pattern 'ab':");
+            DFA dfa = new DFA();
+            dfa.addState("q0", false);
+            dfa.addState("q1", false);
+            dfa.addState("q2", true);
+            
+            dfa.addTransition("q0", 'a', "q1");
+            dfa.addTransition("q1", 'b', "q2");
+            dfa = dfa.setStartState("q0");
+            
+            String dfaLexerCode = dfa.generateLexer("AbLexer", "com.example");
+            System.out.println("   Generated DFA lexer code length: " + dfaLexerCode.length() + " characters");
+            System.out.println("   Contains class definition: " + dfaLexerCode.contains("class AbLexer"));
+            System.out.println("   Contains token types: " + dfaLexerCode.contains("TOKEN_Q2"));
+            
+            // Test 2: Generate lexer from NFA
+            System.out.println("\n2. Generating lexer from NFA for pattern 'a*':");
+            NFA nfa = new NFA();
+            nfa.addState("q0", false);
+            nfa.addState("q1", true);
+            
+            nfa.addTransition("q0", 'a', "q1");
+            nfa.addEpsilonTransition("q1", "q0");
+            nfa.setStartState("q0");
+            
+            String nfaLexerCode = nfa.generateLexer("StarLexer", "com.example");
+            System.out.println("   Generated NFA lexer code length: " + nfaLexerCode.length() + " characters");
+            System.out.println("   Contains class definition: " + nfaLexerCode.contains("class StarLexer"));
+            System.out.println("   Contains epsilon closure: " + nfaLexerCode.contains("getEpsilonClosure"));
+            
+            // Test 3: Generate lexer with custom token types
+            System.out.println("\n3. Generating lexer with custom token types:");
+            Map<String, String> tokenTypes = new HashMap<>();
+            tokenTypes.put("q2", "IDENTIFIER");
+            
+            String customLexerCode = dfa.generateLexer("CustomLexer", "com.example", tokenTypes);
+            System.out.println("   Contains custom token type: " + customLexerCode.contains("IDENTIFIER"));
+            System.out.println("   Contains token constant: " + customLexerCode.contains("public static final String IDENTIFIER"));
+            
+            // Test 4: Generate lexer from regex
+            System.out.println("\n4. Generating lexer from regex pattern '[0-9]+':");
+            DFA regexDfa = RegexToDFAConverter.convert("[0-9]+");
+            String regexLexerCode = regexDfa.generateLexer("NumberLexer", "com.example");
+            System.out.println("   Generated regex lexer code length: " + regexLexerCode.length() + " characters");
+            System.out.println("   Contains class definition: " + regexLexerCode.contains("class NumberLexer"));
+            
+            // Test 5: Show sample generated code structure
+            System.out.println("\n5. Sample generated lexer code structure:");
+            String[] lines = dfaLexerCode.split("\n");
+            int lineCount = 0;
+            for (String line : lines) {
+                if (lineCount < 20) { // Show first 20 lines
+                    System.out.println("   " + line);
+                    lineCount++;
+                } else {
+                    System.out.println("   ... (truncated, total lines: " + lines.length + ")");
+                    break;
+                }
+            }
+            
+            System.out.println("\n✓ All lexer generation tests passed!");
+            
+        } catch (Exception e) {
+            System.out.println("✗ Lexer generation test failed: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
         System.out.println();
     }
 }

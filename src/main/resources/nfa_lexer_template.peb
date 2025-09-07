@@ -1,0 +1,179 @@
+package {{ packageName }};
+
+import java.util.*;
+
+/**
+ * Generated lexer class from NFA.
+ * This class provides tokenization capabilities based on the NFA structure.
+ */
+public class {{ className }} {
+    
+    // Token types
+    {% for state in acceptingStates %}
+    public static final String {{ tokenTypes[state] }} = "{{ tokenTypes[state] }}";
+    {% endfor %}
+    public static final String EOF = "EOF";
+    public static final String ERROR = "ERROR";
+    
+    private String input;
+    private int position;
+    private int startPosition;
+    
+    public {{ className }}(String input) {
+        this.input = input;
+        this.position = 0;
+        this.startPosition = 0;
+    }
+    
+    /**
+     * Gets the next token from the input.
+     * @return the next token or null if end of input
+     */
+    public Token nextToken() {
+        if (position >= input.length()) {
+            return new Token(EOF, "", position);
+        }
+        
+        startPosition = position;
+        Set<String> currentStates = new HashSet<>();
+        currentStates.add("{{ startState }}");
+        
+        // Apply epsilon closure
+        currentStates = getEpsilonClosure(currentStates);
+        
+        StringBuilder tokenValue = new StringBuilder();
+        Set<String> lastAcceptingStates = new HashSet<>();
+        int lastAcceptingPosition = position;
+        
+        while (position < input.length()) {
+            char currentChar = input.charAt(position);
+            Set<String> nextStates = new HashSet<>();
+            
+            // Get all possible next states
+            for (String state : currentStates) {
+                Set<String> transitions = getTransitions(state, currentChar);
+                nextStates.addAll(transitions);
+            }
+            
+            // Apply epsilon closure to next states
+            nextStates = getEpsilonClosure(nextStates);
+            
+            if (nextStates.isEmpty()) {
+                // No transitions available
+                if (!lastAcceptingStates.isEmpty()) {
+                    // Return token from last accepting state
+                    position = lastAcceptingPosition;
+                    return new Token(getTokenType(lastAcceptingStates), tokenValue.toString(), startPosition);
+                } else {
+                    // Error state
+                    return new Token(ERROR, String.valueOf(currentChar), position);
+                }
+            }
+            
+            // Check for accepting states
+            Set<String> acceptingStates = getAcceptingStates(nextStates);
+            if (!acceptingStates.isEmpty()) {
+                lastAcceptingStates = acceptingStates;
+                lastAcceptingPosition = position + 1;
+            }
+            
+            currentStates = nextStates;
+            tokenValue.append(currentChar);
+            position++;
+        }
+        
+        // End of input reached
+        if (!lastAcceptingStates.isEmpty()) {
+            return new Token(getTokenType(lastAcceptingStates), tokenValue.toString(), startPosition);
+        } else {
+            return new Token(ERROR, tokenValue.toString(), startPosition);
+        }
+    }
+    
+    /**
+     * Gets all tokens from the input.
+     * @return list of all tokens
+     */
+    public List<Token> getAllTokens() {
+        List<Token> tokens = new ArrayList<>();
+        Token token;
+        
+        while ((token = nextToken()) != null && !token.getType().equals(EOF)) {
+            tokens.add(token);
+        }
+        
+        tokens.add(new Token(EOF, "", position));
+        return tokens;
+    }
+    
+    private Set<String> getTransitions(String state, char symbol) {
+        Set<String> result = new HashSet<>();
+        // Generated transition logic would go here
+        // For now, return empty set
+        return result;
+    }
+    
+    private Set<String> getEpsilonClosure(Set<String> states) {
+        Set<String> closure = new HashSet<>(states);
+        boolean changed = true;
+        
+        while (changed) {
+            changed = false;
+            Set<String> newStates = new HashSet<>();
+            
+            for (String state : closure) {
+                // Generated epsilon transition logic would go here
+                // For now, no epsilon transitions
+            }
+            
+            closure.addAll(newStates);
+        }
+        
+        return closure;
+    }
+    
+    private Set<String> getAcceptingStates(Set<String> states) {
+        Set<String> accepting = new HashSet<>();
+        {% for acceptingState in acceptingStates %}
+        if (states.contains("{{ acceptingState }}")) {
+            accepting.add("{{ acceptingState }}");
+        }
+        {% endfor %}
+        return accepting;
+    }
+    
+    private String getTokenType(Set<String> acceptingStates) {
+        // Return the first accepting state's token type
+        // In practice, you might want to implement priority rules
+        {% for state in acceptingStates %}
+        if (acceptingStates.contains("{{ state }}")) {
+            return {{ tokenTypes[state] }};
+        }
+        {% endfor %}
+        return ERROR;
+    }
+    
+    /**
+     * Token class representing a recognized token.
+     */
+    public static class Token {
+        private final String type;
+        private final String value;
+        private final int position;
+        
+        public Token(String type, String value, int position) {
+            this.type = type;
+            this.value = value;
+            this.position = position;
+        }
+        
+        public String getType() { return type; }
+        public String getValue() { return value; }
+        public int getPosition() { return position; }
+        
+        @Override
+        public String toString() {
+            return String.format("Token{type='%s', value='%s', position=%d}", type, value, position);
+        }
+    }
+}

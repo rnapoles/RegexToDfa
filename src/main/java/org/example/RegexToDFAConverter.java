@@ -527,11 +527,17 @@ public class RegexToDFAConverter {
         Stack<Character> operators = new Stack<>();
         boolean lastCharWasOperand = false; // Tracks if the previous char was an operand for implicit concatenation
         
+        System.out.println("Infix to Postfix conversion for: " + infix);
+        
         for (int i = 0; i < infix.length(); i++) {
             char c = infix.charAt(i);
+            System.out.println("\nProcessing char: '" + c + "' at index " + i + ", lastCharWasOperand: " + lastCharWasOperand);
+            System.out.println("Operators stack before: " + operators);
+            System.out.println("Postfix before: " + postfix);
             
             // Handle implicit concatenation
             if (lastCharWasOperand && (isOperand(c) || c == '(' || c == '[')) {
+                System.out.println("Adding implicit concatenation");
                 while (!operators.isEmpty() && 
                        getPrecedence(operators.peek()) >= getPrecedence('&')) {
                     postfix.append(operators.pop());
@@ -743,7 +749,7 @@ public class RegexToDFAConverter {
                 quantifierOp.append('Q');
                 i++; // Skip the Q
                 
-                while (i < postfix.length() && Character.isLetterOrDigit(postfix.charAt(i)) || postfix.charAt(i) == ',') {
+                while (i < postfix.length() && (Character.isLetterOrDigit(postfix.charAt(i)) || postfix.charAt(i) == ',')) {
                     quantifierOp.append(postfix.charAt(i));
                     i++;
                 }

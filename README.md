@@ -35,6 +35,7 @@ This project implements a complete regular expression to DFA conversion system u
 - ✅ **Character Classes**: Support for ranges, negation (`^`), and escape sequences
 - ✅ **DFA Minimization**: Automatic optimization using table-filling algorithm
 - ✅ **Visualization**: DOT format output for graph visualization
+- ✅ **Lexer Generation**: Generate Java lexer classes from DFA and NFA using Pebble templates
 - ✅ **Comprehensive Testing**: Extensive test suite with 20+ test classes
 - ✅ **SOLID Principles**: Clean, maintainable, and extensible code architecture
 
@@ -46,9 +47,13 @@ src/
 │   ├── NFA.java                    # Non-deterministic Finite Automaton
 │   ├── DFA.java                    # Deterministic Finite Automaton
 │   ├── RegexToDFAConverter.java    # Main conversion logic
+│   ├── LexerGenerator.java         # Lexer code generation using Pebble templates
 │   ├── State.java                  # State representation
 │   ├── Transition.java             # Transition representation
 │   └── StateSet.java               # State set for DFA construction
+├── main/resources/
+│   ├── dfa_lexer_template.peb      # Pebble template for DFA lexer generation
+│   └── nfa_lexer_template.peb      # Pebble template for NFA lexer generation
 └── test/java/org/example/
     ├── BasicConversionTests.java
     ├── CharacterClassTests.java
@@ -58,6 +63,7 @@ src/
     ├── DFAMinimizationTests.java
     ├── DFATransitionTests.java
     ├── DFAVisualizationTests.java
+    ├── LexerGeneratorTests.java    # Tests for lexer generation functionality
     ├── NFAAcceptanceTests.java
     ├── NFAConstructionTests.java
     ├── NFAConversionTests.java
@@ -94,6 +100,10 @@ NFA concatenate(NFA other)             // Concatenation
 
 // Conversion
 DFA toDFA()                            // Convert to DFA
+
+// Lexer generation
+String generateLexer(String className, String packageName)  // Generate lexer code
+String generateLexer(String className, String packageName, Map<String, String> tokenTypes)  // With custom token types
 ```
 
 #### Example Usage:
@@ -137,6 +147,10 @@ DFA minimizeDFA()                      // Minimize DFA
 
 // Visualization
 String toDot()                         // Generate DOT format for visualization
+
+// Lexer generation
+String generateLexer(String className, String packageName)  // Generate lexer code
+String generateLexer(String className, String packageName, Map<String, String> tokenTypes)  // With custom token types
 ```
 
 #### Example Usage:
@@ -177,6 +191,22 @@ The main converter class that handles the complete regex-to-DFA conversion proce
 static DFA convert(String regex)       // Convert regex to DFA
 ```
 
+### LexerGenerator
+
+The `LexerGenerator` class generates Java lexer code from DFA and NFA using Pebble templates.
+
+#### Key Methods:
+
+```java
+// DFA lexer generation
+String generateLexerFromDFA(DFA dfa, String className, String packageName)
+String generateLexerFromDFA(DFA dfa, String className, String packageName, Map<String, String> tokenTypes)
+
+// NFA lexer generation
+String generateLexerFromNFA(NFA nfa, String className, String packageName)
+String generateLexerFromNFA(NFA nfa, String className, String packageName, Map<String, String> tokenTypes)
+```
+
 #### Example Usage:
 
 ```java
@@ -192,6 +222,25 @@ System.out.println(dfa1.accepts("a"));      // true
 System.out.println(dfa1.accepts("ab"));     // true
 System.out.println(dfa1.accepts("abb"));    // true
 System.out.println(dfa1.accepts("b"));      // false
+```
+
+#### Example Usage:
+
+```java
+// Generate lexer from DFA
+LexerGenerator generator = new LexerGenerator();
+DFA dfa = RegexToDFAConverter.convert("[a-z]+");
+String lexerCode = generator.generateLexerFromDFA(dfa, "IdentifierLexer", "com.example");
+
+// Generate lexer with custom token types
+Map<String, String> tokenTypes = new HashMap<>();
+tokenTypes.put("accepting_state", "IDENTIFIER");
+String customLexerCode = dfa.generateLexer("CustomLexer", "com.example", tokenTypes);
+
+// Generate lexer from NFA
+NFA nfa = new NFA();
+// ... build NFA ...
+String nfaLexerCode = nfa.generateLexer("NFALexer", "com.example");
 ```
 
 ### Supporting Classes
@@ -338,6 +387,39 @@ System.out.println(dotFormat);
 // }
 ```
 
+### Lexer Generation
+
+Generate Java lexer classes from DFA and NFA for tokenization:
+
+```java
+// Generate a lexer for identifiers
+DFA identifierDFA = RegexToDFAConverter.convert("[a-zA-Z][a-zA-Z0-9]*");
+String lexerCode = identifierDFA.generateLexer("IdentifierLexer", "com.example");
+
+// Generate a lexer for numbers
+DFA numberDFA = RegexToDFAConverter.convert("[0-9]+");
+String numberLexerCode = numberDFA.generateLexer("NumberLexer", "com.example");
+
+// Generate a lexer with custom token types
+Map<String, String> tokenTypes = new HashMap<>();
+tokenTypes.put("accepting_state", "IDENTIFIER");
+String customLexerCode = identifierDFA.generateLexer("CustomLexer", "com.example", tokenTypes);
+
+// Generate a lexer from NFA
+NFA nfa = new NFA();
+nfa.addState("start", false);
+nfa.addState("accept", true);
+nfa.addTransition("start", 'a', "accept");
+nfa.setStartState("start");
+String nfaLexerCode = nfa.generateLexer("SimpleLexer", "com.example");
+```
+
+The generated lexer classes include:
+- Token recognition methods (`nextToken()`, `getAllTokens()`)
+- Token class with type, value, and position information
+- State management for DFA/NFA traversal
+- Error handling for invalid input
+
 ## Supported Regex Features
 
 ### Basic Operators
@@ -416,6 +498,7 @@ The project includes a comprehensive test suite with over 20 test classes coveri
 - **Complex Pattern Tests**: Nested patterns and combinations
 - **DFA Tests**: Acceptance, construction, minimization, and transitions
 - **NFA Tests**: Construction, operations, and conversion
+- **Lexer Generation Tests**: DFA and NFA lexer code generation
 - **Edge Case Tests**: Error handling and boundary conditions
 
 Run all tests:
@@ -428,6 +511,7 @@ Run specific test categories:
 mvn test -Dtest="*ConversionTests"
 mvn test -Dtest="*DFATests"
 mvn test -Dtest="*NFATests"
+mvn test -Dtest="LexerGeneratorTests"
 ```
 
 ## Performance Considerations
@@ -481,5 +565,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Thompson's construction algorithm for NFA building
 - Subset construction algorithm for NFA to DFA conversion
 - Table-filling algorithm for DFA minimization
+- Pebble Template Engine for lexer code generation
 - Maven for build management
 - JUnit for testing framework

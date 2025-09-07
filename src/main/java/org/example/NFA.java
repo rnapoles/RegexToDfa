@@ -1,5 +1,6 @@
 package org.example;
 
+import java.io.IOException;
 import java.util.*;
 
 /**
@@ -261,6 +262,42 @@ public class NFA {
             epsilonTransitions.put(fromState, new HashSet<String>());
         }
         epsilonTransitions.get(fromState).add(toState);
+    }
+    
+    /**
+     * Adds a state to the NFA.
+     * 
+     * @param stateName the name of the state to add
+     * @param isAccepting whether this state is an accepting state
+     * @throws IllegalArgumentException if stateName is null or empty
+     */
+    public void addState(String stateName, boolean isAccepting) {
+        // Validate input
+        if (stateName == null || stateName.trim().isEmpty()) {
+            throw new IllegalArgumentException("State name cannot be null or empty");
+        }
+        
+        // Add the state to the set of states
+        states.add(stateName);
+        
+        // Add to accepting states if specified
+        if (isAccepting) {
+            acceptingStates.add(stateName);
+        }
+    }
+    
+    /**
+     * Sets the start state of the NFA.
+     * 
+     * @param newStartState the state to set as the start state
+     * @throws IllegalArgumentException if newStartState is not in the current set of states
+     */
+    public void setStartState(String newStartState) {
+        if (newStartState == null || !states.contains(newStartState)) {
+            throw new IllegalArgumentException("Start state must be a valid state in the NFA");
+        }
+        
+        this.startState = newStartState;
     }
     
     /**
