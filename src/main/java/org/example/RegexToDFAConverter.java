@@ -276,13 +276,8 @@ public class RegexToDFAConverter {
                 // Keep . as is for now - it will be handled as a wildcard in postfix conversion
                 result.append(c);
             } else if (c == '{' && !inCharacterClass && !escaped) {
-                // Simple replacement for {2,} -> + for now
-                if (i + 3 < regex.length() && regex.substring(i, i + 4).equals("{2,}")) {
-                    result.append("+");
-                    i += 3; // Skip the remaining characters of {2,}
-                } else {
-                    result.append(c);
-                }
+                // Keep quantifiers as-is for now, they'll be handled in infix to postfix conversion
+                result.append(c);
             } else {
                 result.append(c);
             }
@@ -305,11 +300,36 @@ public class RegexToDFAConverter {
     private static class QuantifierInfo {
         String replacement;
         int length;
+        QuantifierType type;
+        int min;
+        int max;
         
         QuantifierInfo(String replacement, int length) {
             this.replacement = replacement;
             this.length = length;
+            this.type = QuantifierType.SIMPLE;
+            this.min = 0;
+            this.max = 0;
         }
+        
+        QuantifierInfo(String replacement, int length, QuantifierType type, int min, int max) {
+            this.replacement = replacement;
+            this.length = length;
+            this.type = type;
+            this.min = min;
+            this.max = max;
+        }
+    }
+    
+    /**
+     * Types of quantifiers for different handling approaches.
+     */
+    private enum QuantifierType {
+        SIMPLE,     // *, +, ?
+        EXACT,      // {n}
+        RANGE,      // {n,m}
+        AT_LEAST,   // {n,}
+        AT_MOST     // {,m}
     }
     
     /**
@@ -333,46 +353,63 @@ public class RegexToDFAConverter {
         String content = regex.substring(start + 1, end);
         int totalLength = end - start + 1; // Include the braces
         
+        // Check for empty quantifier - this should be invalid
+        if (content.isEmpty()) {
+            throw new IllegalArgumentException("Invalid quantifier: empty braces {}");
+        }
+        
         // Parse different quantifier patterns
         if (content.contains(",")) {
             String[] parts = content.split(",", 2);
             if (parts.length != 2) {
-                return null;
+                throw new IllegalArgumentException("Invalid quantifier: " + content);
             }
             
             try {
                 if (parts[1].isEmpty()) {
                     // {n,} - n or more occurrences
+                    if (parts[0].isEmpty()) {
+                        throw new IllegalArgumentException("Invalid quantifier: {,}");
+                    }
                     int n = Integer.parseInt(parts[0]);
                     if (n < 0) {
-                        return null;
+                        throw new IllegalArgumentException("Invalid quantifier: negative number");
                     }
-                    String replacement = generateAtLeastNQuantifier(n);
-                    return new QuantifierInfo(replacement, totalLength);
+                    return new QuantifierInfo("", totalLength, QuantifierType.AT_LEAST, n, Integer.MAX_VALUE);
                 } else {
                     // {n,m} - between n and m occurrences
-                    int n = Integer.parseInt(parts[0]);
-                    int m = Integer.parseInt(parts[1]);
-                    if (n < 0 || m < n) {
-                        return null;
+                    if (parts[0].isEmpty()) {
+                        // {,m} - at most m occurrences
+                        int m = Integer.parseInt(parts[1]);
+                        if (m < 0) {
+                            throw new IllegalArgumentException("Invalid quantifier: negative number");
+                        }
+                        return new QuantifierInfo("", totalLength, QuantifierType.AT_MOST, 0, m);
+                    } else {
+                        int n = Integer.parseInt(parts[0]);
+                        int m = Integer.parseInt(parts[1]);
+                        if (n < 0 || m < 0) {
+                            throw new IllegalArgumentException("Invalid quantifier: negative number");
+                        }
+                        if (m < n) {
+                            throw new IllegalArgumentException("Invalid quantifier: upper bound less than lower bound");
+                        }
+                        return new QuantifierInfo("", totalLength, QuantifierType.RANGE, n, m);
                     }
-                    String replacement = generateRangeQuantifier(n, m);
-                    return new QuantifierInfo(replacement, totalLength);
                 }
             } catch (NumberFormatException e) {
-                return null;
+                throw new IllegalArgumentException("Invalid quantifier: non-numeric bounds");
             }
         } else {
             // {n} - exactly n occurrences
             try {
                 int n = Integer.parseInt(content);
                 if (n < 0) {
-                    return null;
+                    throw new IllegalArgumentException("Invalid quantifier: negative number");
                 }
-                String replacement = generateExactlyNQuantifier(n);
-                return new QuantifierInfo(replacement, totalLength);
+                return new QuantifierInfo("", totalLength, QuantifierType.EXACT, n, n);
             } catch (NumberFormatException e) {
-                return null;
+                throw new IllegalArgumentException("Invalid quantifier: non-numeric value");
             }
         }
     }
@@ -591,6 +628,56 @@ public class RegexToDFAConverter {
                 } else {
                     needConcat = false;
                 }
+            } else if (c == '{') {
+                // Handle quantifiers like {2,}, {3}, {2,5}
+                QuantifierInfo quantifierInfo = parseQuantifier(infix, i);
+                if (quantifierInfo != null) {
+                    // Apply the quantifier to the previous operand
+                    if (postfix.length() == 0) {
+                        throw new IllegalArgumentException("Nothing to repeat at position " + i);
+                    }
+                    
+                    // Create a special quantifier operator that the NFA builder can understand
+                    // Format: Q<type><min><max> where type is E, A, M, R for exact, at-least, at-most, range
+                    StringBuilder quantifierOp = new StringBuilder();
+                    quantifierOp.append("Q");
+                    
+                    switch (quantifierInfo.type) {
+                        case EXACT:
+                            quantifierOp.append("E").append(quantifierInfo.min);
+                            break;
+                        case AT_LEAST:
+                            quantifierOp.append("A").append(quantifierInfo.min);
+                            break;
+                        case AT_MOST:
+                            quantifierOp.append("M").append(quantifierInfo.max);
+                            break;
+                        case RANGE:
+                            quantifierOp.append("R").append(quantifierInfo.min).append(",").append(quantifierInfo.max);
+                            break;
+                        default:
+                            // Simple quantifier
+                            if (quantifierInfo.replacement.equals("*")) {
+                                postfix.append('*');
+                            } else if (quantifierInfo.replacement.equals("+")) {
+                                postfix.append('+');
+                            } else if (quantifierInfo.replacement.equals("?")) {
+                                postfix.append('?');
+                            }
+                            break;
+                    }
+                    
+                    if (quantifierInfo.type != QuantifierType.SIMPLE) {
+                        postfix.append(quantifierOp.toString());
+                    }
+                    
+                    i += quantifierInfo.length - 1; // -1 because the loop will increment
+                    needConcat = true;
+                } else {
+                    // Not a valid quantifier, treat as literal
+                    postfix.append(c);
+                    needConcat = true;
+                }
             }
         }
         
@@ -675,6 +762,47 @@ public class RegexToDFAConverter {
                 NFA nfa2 = nfaStack.pop();
                 NFA nfa1 = nfaStack.pop();
                 nfaStack.push(nfa1.concatenate(nfa2));
+            } else if (c == 'Q') {
+                // Handle special quantifier operators
+                if (nfaStack.isEmpty()) {
+                    throw new IllegalArgumentException("Invalid regex: quantifier without operand");
+                }
+                
+                // Parse the quantifier operator
+                StringBuilder quantifierOp = new StringBuilder();
+                quantifierOp.append('Q');
+                i++; // Skip the Q
+                
+                while (i < postfix.length() && Character.isLetterOrDigit(postfix.charAt(i)) || postfix.charAt(i) == ',') {
+                    quantifierOp.append(postfix.charAt(i));
+                    i++;
+                }
+                i--; // Back up one position since the loop will increment
+                
+                String op = quantifierOp.toString();
+                NFA operand = nfaStack.pop();
+                
+                if (op.startsWith("QE")) {
+                    // Exact quantifier: QE<n>
+                    int n = Integer.parseInt(op.substring(2));
+                    nfaStack.push(createExactQuantifierNFA(operand, n));
+                } else if (op.startsWith("QA")) {
+                    // At least quantifier: QA<n>
+                    int n = Integer.parseInt(op.substring(2));
+                    nfaStack.push(createAtLeastQuantifierNFA(operand, n));
+                } else if (op.startsWith("QM")) {
+                    // At most quantifier: QM<m>
+                    int m = Integer.parseInt(op.substring(2));
+                    nfaStack.push(createAtMostQuantifierNFA(operand, m));
+                } else if (op.startsWith("QR")) {
+                    // Range quantifier: QR<n,m>
+                    String[] parts = op.substring(2).split(",");
+                    int n = Integer.parseInt(parts[0]);
+                    int m = Integer.parseInt(parts[1]);
+                    nfaStack.push(createRangeQuantifierNFA(operand, n, m));
+                } else {
+                    throw new IllegalArgumentException("Invalid quantifier operator: " + op);
+                }
             }
         }
         
@@ -923,6 +1051,87 @@ public class RegexToDFAConverter {
         nfa.addTransition(startState, '\r', acceptState);
         
         return nfa;
+    }
+    
+    /**
+     * Creates an NFA for exact quantifier: exactly n occurrences.
+     */
+    private static NFA createExactQuantifierNFA(NFA operand, int n) {
+        if (n == 0) {
+            return createEmptyStringNFA();
+        }
+        if (n == 1) {
+            return operand;
+        }
+        
+        // Concatenate the operand n times
+        NFA result = operand;
+        for (int i = 1; i < n; i++) {
+            result = result.concatenate(operand);
+        }
+        return result;
+    }
+    
+    /**
+     * Creates an NFA for at-least quantifier: n or more occurrences.
+     */
+    private static NFA createAtLeastQuantifierNFA(NFA operand, int n) {
+        if (n == 0) {
+            return operand.star();
+        }
+        if (n == 1) {
+            return operand.plus();
+        }
+        
+        // First, create exactly n occurrences
+        NFA exactN = createExactQuantifierNFA(operand, n);
+        // Then, add zero or more additional occurrences
+        return exactN.concatenate(operand.star());
+    }
+    
+    /**
+     * Creates an NFA for at-most quantifier: at most m occurrences.
+     */
+    private static NFA createAtMostQuantifierNFA(NFA operand, int m) {
+        if (m == 0) {
+            return createEmptyStringNFA();
+        }
+        if (m == 1) {
+            return operand.question();
+        }
+        
+        // Create union of 0, 1, 2, ..., m occurrences
+        NFA result = createEmptyStringNFA(); // 0 occurrences
+        
+        for (int i = 1; i <= m; i++) {
+            NFA current = createExactQuantifierNFA(operand, i);
+            result = result.union(current);
+        }
+        return result;
+    }
+    
+    /**
+     * Creates an NFA for range quantifier: between n and m occurrences.
+     */
+    private static NFA createRangeQuantifierNFA(NFA operand, int n, int m) {
+        if (n == m) {
+            return createExactQuantifierNFA(operand, n);
+        }
+        if (n == 0) {
+            return createAtMostQuantifierNFA(operand, m);
+        }
+        if (m == Integer.MAX_VALUE) {
+            return createAtLeastQuantifierNFA(operand, n);
+        }
+        
+        // Create union of n, n+1, ..., m occurrences
+        NFA result = createExactQuantifierNFA(operand, n);
+        
+        for (int i = n + 1; i <= m; i++) {
+            NFA current = createExactQuantifierNFA(operand, i);
+            result = result.union(current);
+        }
+        return result;
     }
 
     /**
