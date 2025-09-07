@@ -99,43 +99,30 @@ public class CustomLexer {
     }
     
     private String getNextState(String currentState, char symbol) {
-        // Generated transition logic
+        // Generated transition logic using actual DFA transitions
+        // More efficient implementation using switch statements
                 if ("q1".equals(currentState)) {
-                        if (symbol == 'a') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
+            switch (symbol) {
+                                                case 'b':
+                    return "q2";
+                                                                                default:
+                    return null;
             }
-                        if (symbol == 'b') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                    }
+        }
                 if ("q2".equals(currentState)) {
-                        if (symbol == 'a') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
+            switch (symbol) {
+                                                                                                default:
+                    return null;
             }
-                        if (symbol == 'b') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                    }
+        }
                 if ("q0".equals(currentState)) {
-                        if (symbol == 'a') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
+            switch (symbol) {
+                                                                                case 'a':
+                    return "q1";
+                                                default:
+                    return null;
             }
-                        if (symbol == 'b') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                    }
+        }
                 return null;
     }
     

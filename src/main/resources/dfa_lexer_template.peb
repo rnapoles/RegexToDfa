@@ -101,16 +101,20 @@ public class {{ className }} {
     }
     
     private String getNextState(String currentState, char symbol) {
-        // Generated transition logic
+        // Generated transition logic using actual DFA transitions
+        // More efficient implementation using switch statements
         {% for fromState in states %}
         if ("{{ fromState }}".equals(currentState)) {
-            {% for symbol in alphabet %}
-            if (symbol == '{{ symbol }}') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
+            switch (symbol) {
+                {% for transition in flattenedTransitions %}
+                {% if transition.fromState == fromState %}
+                case '{{ transition.symbol }}':
+                    return "{{ transition.toState }}";
+                {% endif %}
+                {% endfor %}
+                default:
+                    return null;
             }
-            {% endfor %}
         }
         {% endfor %}
         return null;

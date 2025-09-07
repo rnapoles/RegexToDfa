@@ -98,111 +98,60 @@ public class NumberLexer {
     }
     
     private String getNextState(String currentState, char symbol) {
-        // Generated transition logic
+        // Generated transition logic using actual DFA transitions
+        // More efficient implementation using switch statements
                 if ("q1".equals(currentState)) {
-                        if (symbol == '0') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
+            switch (symbol) {
+                                                case '0':
+                    return "q1";
+                                                                case '1':
+                    return "q1";
+                                                                case '2':
+                    return "q1";
+                                                                case '3':
+                    return "q1";
+                                                                case '4':
+                    return "q1";
+                                                                case '5':
+                    return "q1";
+                                                                case '6':
+                    return "q1";
+                                                                case '7':
+                    return "q1";
+                                                                case '8':
+                    return "q1";
+                                                                case '9':
+                    return "q1";
+                                                                                                                                                                                                                                                                                                                                                                                default:
+                    return null;
             }
-                        if (symbol == '1') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                        if (symbol == '2') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                        if (symbol == '3') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                        if (symbol == '4') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                        if (symbol == '5') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                        if (symbol == '6') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                        if (symbol == '7') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                        if (symbol == '8') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                        if (symbol == '9') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                    }
+        }
                 if ("q0".equals(currentState)) {
-                        if (symbol == '0') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
+            switch (symbol) {
+                                                                                                                                                                                                                                                                                                                                                                                case '0':
+                    return "q1";
+                                                                case '1':
+                    return "q1";
+                                                                case '2':
+                    return "q1";
+                                                                case '3':
+                    return "q1";
+                                                                case '4':
+                    return "q1";
+                                                                case '5':
+                    return "q1";
+                                                                case '6':
+                    return "q1";
+                                                                case '7':
+                    return "q1";
+                                                                case '8':
+                    return "q1";
+                                                                case '9':
+                    return "q1";
+                                                default:
+                    return null;
             }
-                        if (symbol == '1') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                        if (symbol == '2') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                        if (symbol == '3') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                        if (symbol == '4') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                        if (symbol == '5') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                        if (symbol == '6') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                        if (symbol == '7') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                        if (symbol == '8') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                        if (symbol == '9') {
-                // This would need to be generated based on actual transitions
-                // For now, return null to indicate no transition
-                return null;
-            }
-                    }
+        }
                 return null;
     }
     

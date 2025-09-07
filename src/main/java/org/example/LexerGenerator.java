@@ -164,6 +164,21 @@ public class LexerGenerator {
         context.put("acceptingStates", dfa.getAcceptingStates());
         context.put("isDFA", true);
         
+        // Create flattened transitions list for easier template processing
+        List<Map<String, Object>> flattenedTransitions = new ArrayList<>();
+        for (Map.Entry<String, Map<Character, String>> entry : dfa.getTransitions().entrySet()) {
+            String fromState = entry.getKey();
+            Map<Character, String> stateTransitions = entry.getValue();
+            for (Map.Entry<Character, String> transition : stateTransitions.entrySet()) {
+                Map<String, Object> flatTransition = new HashMap<>();
+                flatTransition.put("fromState", fromState);
+                flatTransition.put("symbol", transition.getKey());
+                flatTransition.put("toState", transition.getValue());
+                flattenedTransitions.add(flatTransition);
+            }
+        }
+        context.put("flattenedTransitions", flattenedTransitions);
+        
         // Generate default token types if not provided
         Map<String, String> defaultTokenTypes = new HashMap<>();
         for (String state : dfa.getAcceptingStates()) {
