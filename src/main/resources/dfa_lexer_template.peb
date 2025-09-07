@@ -56,6 +56,22 @@ public class {{ className }} {
 {% endfor %}
     }
     
+    // Alphabet of the DFA
+    private static final Set<Character> alphabet = new HashSet<Character>();
+    static {
+{% for symbol in sortedAlphabet %}
+        alphabet.add('{{ symbol }}');
+{% endfor %}
+    }
+    
+    // Accepting states of the DFA
+    private static final Set<String> acceptingStates = new HashSet<String>();
+    static {
+{% for acceptingState in acceptingStates %}
+        acceptingStates.add("{{ acceptingState }}");
+{% endfor %}
+    }
+    
     public {{ className }}(String input) {
         this.states = new HashSet<String>();
         this.input = input;

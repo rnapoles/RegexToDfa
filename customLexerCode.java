@@ -55,6 +55,19 @@ public class CustomLexer {
         SYMBOL_INDEX.put('b', 1);
     }
     
+    // Alphabet of the DFA
+    private static final Set<Character> alphabet = new HashSet<Character>();
+    static {
+        alphabet.add('a');
+        alphabet.add('b');
+    }
+    
+    // Accepting states of the DFA
+    private static final Set<String> acceptingStates = new HashSet<String>();
+    static {
+        acceptingStates.add("q2");
+    }
+    
     public CustomLexer(String input) {
         this.states = new HashSet<String>();
         this.input = input;
